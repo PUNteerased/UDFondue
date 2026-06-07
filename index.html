@@ -164,8 +164,21 @@
     <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center text-white">
         <div class="text-center">
             <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-300 mx-auto mb-4"></div>
-            <h3 class="text-lg font-semibold">กำลังบันทึกและส่งข้อมูล...</h3>
-            <p class="text-sm text-gray-300 mt-1">กรุณาอย่าปิดหน้านี้</p>
+            <h3 id="loadingTitle" class="text-lg font-semibold">กำลังบันทึกและส่งข้อมูล...</h3>
+            <p id="loadingSubtitle" class="text-sm text-gray-300 mt-1">กรุณาอย่าปิดหน้านี้</p>
+        </div>
+    </div>
+
+    <div id="successOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm mx-4 p-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-800 mb-4">
+                <i class="fa-solid fa-circle-check text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-blue-900">ขอบคุณที่แจ้งปัญหา</h3>
+            <p class="text-sm text-gray-500 mt-2">เราได้รับข้อมูลของคุณแล้ว ทีมงานจะดำเนินการต่อไป</p>
+            <button type="button" id="newReportBtn" class="hidden mt-6 w-full py-2.5 rounded-xl border border-blue-800 text-blue-800 font-medium hover:bg-blue-50 transition-colors">
+                แจ้งเรื่องใหม่
+            </button>
         </div>
     </div>
 
@@ -276,6 +289,43 @@
             renderPreviews();
         }
 
+        async function postToGas(payload) {
+            await fetch(GAS_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        function setLoadingMessage(title, subtitle) {
+            document.getElementById("loadingTitle").textContent = title;
+            document.getElementById("loadingSubtitle").textContent = subtitle;
+        }
+
+        function showSuccess() {
+            document.getElementById("loadingOverlay").classList.add("hidden");
+            document.getElementById("successOverlay").classList.remove("hidden");
+
+            if (typeof liff !== "undefined" && liff.isInClient()) {
+                setTimeout(function () { liff.closeWindow(); }, 2000);
+            } else {
+                document.getElementById("newReportBtn").classList.remove("hidden");
+            }
+        }
+
+        function resetForm() {
+            document.getElementById("reportForm").reset();
+            document.getElementById("otherCategoryWrapper").classList.add("hidden");
+            document.getElementById("otherCategoryInput").removeAttribute("required");
+            resetImages();
+            document.getElementById("submitBtn").disabled = false;
+            document.getElementById("successOverlay").classList.add("hidden");
+            document.getElementById("newReportBtn").classList.add("hidden");
+        }
+
+        document.getElementById("newReportBtn").addEventListener("click", resetForm);
+
         async function initLiff() {
             try {
                 await liff.init({ liffId: LIFF_ID });
@@ -331,35 +381,36 @@
             loadingOverlay.classList.remove("hidden");
             submitBtn.disabled = true;
 
-            const payload = {
-                lineId: document.getElementById("lineUserId").value,
-                name: document.getElementById("reporterName").value,
-                category: selectedCat.value,
-                otherCategory: otherCategoryValue,
-                detail: document.getElementById("issueDetail").value,
-                images: base64Images
-            };
+            const lineUserId = document.getElementById("lineUserId").value;
+            const submitId = Date.now() + "-" + lineUserId;
 
             try {
-                await fetch(GAS_WEB_APP_URL, {
-                    method: "POST",
-                    mode: "no-cors",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
+                setLoadingMessage("กำลังบันทึกข้อมูล...", "กรุณาอย่าปิดหน้านี้");
+                await postToGas({
+                    action: "submit",
+                    submitId: submitId,
+                    lineId: lineUserId,
+                    name: document.getElementById("reporterName").value,
+                    category: selectedCat.value,
+                    otherCategory: otherCategoryValue,
+                    detail: document.getElementById("issueDetail").value,
+                    imageCount: base64Images.length
                 });
 
-                setTimeout(() => {
-                    loadingOverlay.classList.add("hidden");
-                    alert("แจ้งเรื่องสำเร็จ! ข้อมูลของคุณได้รับการบันทึกเรียบร้อยแล้ว");
+                for (let i = 0; i < base64Images.length; i++) {
+                    setLoadingMessage(
+                        "กำลังส่งรูป " + (i + 1) + "/" + base64Images.length,
+                        "กรุณาอย่าปิดหน้านี้"
+                    );
+                    await postToGas({
+                        action: "uploadImage",
+                        submitId: submitId,
+                        imageIndex: i + 1,
+                        image: base64Images[i]
+                    });
+                }
 
-                    if (liff.isInClient()) {
-                        liff.closeWindow();
-                    } else {
-                        document.getElementById("reportForm").reset();
-                        resetImages();
-                        submitBtn.disabled = false;
-                    }
-                }, 2000);
+                showSuccess();
 
             } catch (error) {
                 loadingOverlay.classList.add("hidden");
