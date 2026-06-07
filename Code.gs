@@ -10,13 +10,16 @@
  */
 
 const SHEET_NAME = "UDFondue_Database"; // ชื่อแผ่นงานใน Google Sheets
+const LOG_SHEET_NAME = "Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ"; // โฟลเดอร์ UDFondue_Images
 
 function doPost(e) {
+  const timestamp = new Date();
+  const payloadSize = (e && e.postData && e.postData.contents) ? e.postData.contents.length : 0;
+
   try {
     const data = JSON.parse(e.postData.contents);
 
-    const timestamp = new Date();
     const name = data.name || "ไม่ระบุชื่อ";
     const lineId = data.lineId || "ไม่ระบุ ID";
     let category = data.category || "ไม่ได้เลือก";
@@ -24,6 +27,7 @@ function doPost(e) {
 
     // รองรับทั้งแบบหลายรูป (images) และแบบรูปเดียวเดิม (image)
     let images = [];
+    const imagesType = typeof data.images;
     if (Array.isArray(data.images)) {
       images = data.images;
     } else if (data.image) {
@@ -36,19 +40,27 @@ function doPost(e) {
     }
 
     // 1) อัปโหลดรูปเข้า Google Drive (ถ้ามีการแนบมา)
-    //    แยก try/catch ไว้ต่างหาก เพื่อให้แม้การอัปรูปล้มเหลว ข้อมูลก็ยังถูกบันทึกลงชีตเสมอ
     let imageUrl = "ไม่มีรูปภาพ";
-    try {
-      const urls = [];
-      for (let i = 0; i < images.length; i++) {
+    const uploadErrors = [];
+    const urls = [];
+
+    for (let i = 0; i < images.length; i++) {
+      try {
         const url = uploadImage_(images[i], timestamp, i + 1);
-        if (url) urls.push(url);
+        if (url) {
+          urls.push(url);
+        } else {
+          uploadErrors.push("รูป" + (i + 1) + ": ข้อมูลรูปไม่ถูกต้อง");
+        }
+      } catch (imgErr) {
+        uploadErrors.push("รูป" + (i + 1) + ": " + imgErr.toString());
       }
-      if (urls.length > 0) {
-        imageUrl = urls.join("\n");
-      }
-    } catch (imgErr) {
-      imageUrl = "อัปโหลดรูปไม่สำเร็จ: " + imgErr.toString();
+    }
+
+    if (urls.length > 0) {
+      imageUrl = urls.join("\n");
+    } else if (uploadErrors.length > 0) {
+      imageUrl = "อัปโหลดรูปไม่สำเร็จ: " + uploadErrors.join(" | ");
     }
 
     // 2) บันทึกลง Google Sheets (สร้างหัวตารางอัตโนมัติถ้ายังว่าง)
@@ -58,9 +70,12 @@ function doPost(e) {
     }
     sheet.appendRow([timestamp, lineId, name, category, detail, imageUrl]);
 
+    writeLog_(timestamp, payloadSize, imagesType, images.length, urls.length, uploadErrors.join(" | "), "success");
+
     return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
 
   } catch (error) {
+    writeLog_(timestamp, payloadSize, "error", 0, 0, error.toString(), "error");
     return jsonResponse_({ status: "error", message: error.toString() });
   }
 }
@@ -110,6 +125,24 @@ function getSheet_() {
     sheet = ss.insertSheet(SHEET_NAME);
   }
   return sheet;
+}
+
+function getLogSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(LOG_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(LOG_SHEET_NAME);
+    sheet.appendRow(["วันที่/เวลา", "ขนาด Payload (ตัวอักษร)", "ชนิด images", "จำนวนรูปที่ได้รับ", "จำนวนรูปที่อัปสำเร็จ", "ข้อผิดพลาด", "สถานะ"]);
+  }
+  return sheet;
+}
+
+function writeLog_(timestamp, payloadSize, imagesType, imageCount, uploadedCount, errors, status) {
+  try {
+    getLogSheet_().appendRow([timestamp, payloadSize, imagesType, imageCount, uploadedCount, errors || "", status]);
+  } catch (logErr) {
+    // ไม่ให้การ log ทำให้คำขอหลักล้มเหลว
+  }
 }
 
 function jsonResponse_(obj) {
