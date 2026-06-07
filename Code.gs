@@ -10,7 +10,7 @@
 
 const SHEET_NAME = "UDFondue_Database";
 
-const LOG_SHEET_NAME = "Log";
+const LOG_SHEET_NAME = "UDFondue_Log";
 
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
 
@@ -42,7 +42,7 @@ function doPost(e) {
 
   const payloadSize = (e && e.postData && e.postData.contents) ? e.postData.contents.length : 0;
 
-
+  ensureLogSheet_();
 
   try {
 
@@ -472,7 +472,7 @@ function getSheet_() {
 
 
 
-function getLogSheet_() {
+function ensureLogSheet_() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -484,13 +484,28 @@ function getLogSheet_() {
 
     sheet.appendRow(["วันที่/เวลา", "ขนาด Payload", "Action", "จำนวนรูปที่ได้รับ", "จำนวนรูปที่อัปสำเร็จ", "Upload OK", "ข้อผิดพลาด", "สถานะ", "Submit ID"]);
 
+    sheet.setFrozenRows(1);
+
   }
 
   return sheet;
 
 }
 
+function getLogSheet_() {
 
+  return ensureLogSheet_();
+
+}
+
+// รันฟังก์ชันนี้จาก Apps Script editor (Run) ครั้งเดียวเพื่อสร้างแท็บ Log ทันที
+function setupLogSheet() {
+
+  ensureLogSheet_();
+
+  return "สร้างแท็บ " + LOG_SHEET_NAME + " เรียบร้อยแล้ว";
+
+}
 
 function writeLog_(timestamp, payloadSize, action, imageCount, uploadedCount, uploadOk, errors, status, submitId) {
 
@@ -500,7 +515,7 @@ function writeLog_(timestamp, payloadSize, action, imageCount, uploadedCount, up
 
   } catch (logErr) {
 
-    // ไม่ให้การ log ทำให้คำขอหลักล้มเหลว
+    Logger.log("writeLog_ error: " + logErr.toString());
 
   }
 
