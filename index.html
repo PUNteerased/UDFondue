@@ -169,6 +169,8 @@
         </div>
     </div>
 
+    <iframe name="gasFrame" style="display:none" title="gas"></iframe>
+
     <div id="successOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm mx-4 p-8 text-center">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-800 mb-4">
@@ -185,6 +187,8 @@
     <script>
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwNOi5ygN32j8LKxFsUV_o9O1hVdBp9tGOq7W1sxNOla2pD4cigyok_NtkDV02EvVo/exec";
         const LIFF_ID = "2010319415-epnUUdNV";
+        const API_VERSION_EXPECTED = "v3-split";
+        const GAS_POST_DELAY_MS = 3000;
 
         const MAX_IMAGES = 5;
         const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -289,13 +293,40 @@
             renderPreviews();
         }
 
-        async function postToGas(payload) {
-            await fetch(GAS_WEB_APP_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify(payload)
+        function postToGas(payload) {
+            return new Promise(function (resolve) {
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = GAS_WEB_APP_URL;
+                form.target = "gasFrame";
+                form.style.display = "none";
+
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "payload";
+                input.value = JSON.stringify(payload);
+                form.appendChild(input);
+
+                document.body.appendChild(form);
+                form.submit();
+
+                setTimeout(function () {
+                    document.body.removeChild(form);
+                    resolve();
+                }, GAS_POST_DELAY_MS);
             });
+        }
+
+        async function checkApiVersion() {
+            try {
+                const res = await fetch(GAS_WEB_APP_URL);
+                const data = await res.json();
+                if (data.version !== API_VERSION_EXPECTED) {
+                    console.warn("API version mismatch:", data.version, "expected:", API_VERSION_EXPECTED);
+                }
+            } catch (err) {
+                console.warn("API version check failed:", err);
+            }
         }
 
         function setLoadingMessage(title, subtitle) {
@@ -327,6 +358,7 @@
         document.getElementById("newReportBtn").addEventListener("click", resetForm);
 
         async function initLiff() {
+            checkApiVersion();
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
