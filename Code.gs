@@ -31,21 +31,33 @@ function doPost(e) {
     let imageUrl = "ไม่มีรูปภาพ";
 
     // 1) อัปโหลดรูปเข้า Google Drive (ถ้ามีการแนบมา)
+    //    แยก try/catch ไว้ต่างหาก เพื่อให้แม้การอัปรูปล้มเหลว ข้อมูลก็ยังถูกบันทึกลงชีต
     if (base64Image && base64Image.indexOf(",") !== -1) {
-      const folder = DriveApp.getFolderById(FOLDER_ID);
+      try {
+        const folder = DriveApp.getFolderById(FOLDER_ID);
 
-      const splitData = base64Image.split(",");
-      const contentType = splitData[0].match(/:(.*?);/)[1]; // เช่น image/png
-      const rawBase64 = splitData[1];
+        const splitData = base64Image.split(",");
+        const contentType = splitData[0].match(/:(.*?);/)[1]; // เช่น image/png
+        const rawBase64 = splitData[1];
 
-      const decodedImg = Utilities.base64Decode(rawBase64);
-      const extension = contentType.split("/")[1];
-      const fileName = "UDFondue_" + Utilities.formatDate(timestamp, "GMT+7", "yyyyMMdd_HHmmss") + "." + extension;
-      const blob = Utilities.newBlob(decodedImg, contentType, fileName);
+        const decodedImg = Utilities.base64Decode(rawBase64);
+        const extension = contentType.split("/")[1];
+        const fileName = "UDFondue_" + Utilities.formatDate(timestamp, "GMT+7", "yyyyMMdd_HHmmss") + "." + extension;
+        const blob = Utilities.newBlob(decodedImg, contentType, fileName);
 
-      const file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      imageUrl = file.getUrl();
+        const file = folder.createFile(blob);
+
+        // การตั้งค่าแชร์อาจถูกบล็อกโดยนโยบายบัญชี/องค์กร — ไม่ให้ทำให้ทั้งคำขอล้มเหลว
+        try {
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (shareErr) {
+          // ข้ามได้ ลิงก์ยังใช้งานได้สำหรับผู้มีสิทธิ์เข้าถึงโฟลเดอร์
+        }
+
+        imageUrl = file.getUrl();
+      } catch (imgErr) {
+        imageUrl = "อัปโหลดรูปไม่สำเร็จ: " + imgErr.toString();
+      }
     }
 
     // 2) บันทึกลง Google Sheets (สร้างหัวตารางอัตโนมัติถ้ายังว่าง)
