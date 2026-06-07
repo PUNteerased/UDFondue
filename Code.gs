@@ -21,43 +21,34 @@ function doPost(e) {
     const lineId = data.lineId || "ไม่ระบุ ID";
     let category = data.category || "ไม่ได้เลือก";
     const detail = data.detail || "";
-    const base64Image = data.image || "";
+
+    // รองรับทั้งแบบหลายรูป (images) และแบบรูปเดียวเดิม (image)
+    let images = [];
+    if (Array.isArray(data.images)) {
+      images = data.images;
+    } else if (data.image) {
+      images = [data.image];
+    }
 
     // ถ้าเลือก "อื่นๆ" ให้ใช้หัวข้อที่ผู้ใช้ระบุเอง
     if (category === "other") {
       category = "อื่นๆ: " + (data.otherCategory || "ไม่ระบุหัวข้อ");
     }
 
-    let imageUrl = "ไม่มีรูปภาพ";
-
     // 1) อัปโหลดรูปเข้า Google Drive (ถ้ามีการแนบมา)
-    //    แยก try/catch ไว้ต่างหาก เพื่อให้แม้การอัปรูปล้มเหลว ข้อมูลก็ยังถูกบันทึกลงชีต
-    if (base64Image && base64Image.indexOf(",") !== -1) {
-      try {
-        const folder = DriveApp.getFolderById(FOLDER_ID);
-
-        const splitData = base64Image.split(",");
-        const contentType = splitData[0].match(/:(.*?);/)[1]; // เช่น image/png
-        const rawBase64 = splitData[1];
-
-        const decodedImg = Utilities.base64Decode(rawBase64);
-        const extension = contentType.split("/")[1];
-        const fileName = "UDFondue_" + Utilities.formatDate(timestamp, "GMT+7", "yyyyMMdd_HHmmss") + "." + extension;
-        const blob = Utilities.newBlob(decodedImg, contentType, fileName);
-
-        const file = folder.createFile(blob);
-
-        // การตั้งค่าแชร์อาจถูกบล็อกโดยนโยบายบัญชี/องค์กร — ไม่ให้ทำให้ทั้งคำขอล้มเหลว
-        try {
-          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        } catch (shareErr) {
-          // ข้ามได้ ลิงก์ยังใช้งานได้สำหรับผู้มีสิทธิ์เข้าถึงโฟลเดอร์
-        }
-
-        imageUrl = file.getUrl();
-      } catch (imgErr) {
-        imageUrl = "อัปโหลดรูปไม่สำเร็จ: " + imgErr.toString();
+    //    แยก try/catch ไว้ต่างหาก เพื่อให้แม้การอัปรูปล้มเหลว ข้อมูลก็ยังถูกบันทึกลงชีตเสมอ
+    let imageUrl = "ไม่มีรูปภาพ";
+    try {
+      const urls = [];
+      for (let i = 0; i < images.length; i++) {
+        const url = uploadImage_(images[i], timestamp, i + 1);
+        if (url) urls.push(url);
       }
+      if (urls.length > 0) {
+        imageUrl = urls.join("\n");
+      }
+    } catch (imgErr) {
+      imageUrl = "อัปโหลดรูปไม่สำเร็จ: " + imgErr.toString();
     }
 
     // 2) บันทึกลง Google Sheets (สร้างหัวตารางอัตโนมัติถ้ายังว่าง)
@@ -85,6 +76,33 @@ function doGet(e) {
 }
 
 // ---------- Helpers ----------
+// อัปโหลดรูป Base64 หนึ่งรูปเข้า Drive แล้วคืนค่าลิงก์ (คืน "" ถ้ารูปไม่ถูกต้อง)
+function uploadImage_(base64Image, timestamp, index) {
+  if (!base64Image || base64Image.indexOf(",") === -1) return "";
+
+  const folder = DriveApp.getFolderById(FOLDER_ID);
+
+  const splitData = base64Image.split(",");
+  const contentType = splitData[0].match(/:(.*?);/)[1]; // เช่น image/png
+  const rawBase64 = splitData[1];
+
+  const decodedImg = Utilities.base64Decode(rawBase64);
+  const extension = contentType.split("/")[1];
+  const fileName = "UDFondue_" + Utilities.formatDate(timestamp, "GMT+7", "yyyyMMdd_HHmmss") + "_" + index + "." + extension;
+  const blob = Utilities.newBlob(decodedImg, contentType, fileName);
+
+  const file = folder.createFile(blob);
+
+  // การตั้งค่าแชร์อาจถูกบล็อกโดยนโยบายบัญชี/องค์กร — ไม่ให้ทำให้ทั้งคำขอล้มเหลว
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (shareErr) {
+    // ข้ามได้ ลิงก์ยังใช้งานได้สำหรับผู้มีสิทธิ์เข้าถึงโฟลเดอร์
+  }
+
+  return file.getUrl();
+}
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
