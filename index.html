@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UDFondue | ระบบแจ้งเรื่องนักเรียน</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+    <style>
+        body {
+            font-family: 'Anuphan', sans-serif;
+            background-color: #eef2f7;
+        }
+        .category-card input:checked + .category-body {
+            border-color: #1e3a8a;
+            background-color: #eff3fb;
+            box-shadow: 0 4px 14px rgba(30, 58, 138, 0.18);
+        }
+        .category-card input:checked + .category-body .cat-icon {
+            background-color: #1e3a8a;
+            color: #ffffff;
+        }
+        .category-card input:checked + .category-body .cat-check {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div class="bg-white w-full min-h-screen flex flex-col">
+
+        <div class="bg-gradient-to-r from-blue-900 to-blue-700 text-white">
+            <div class="w-full max-w-2xl mx-auto px-6 py-8 sm:py-10 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/20 mb-3 backdrop-blur-sm">
+                    <i class="fa-solid fa-comment-dots text-3xl sm:text-4xl"></i>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold">UDFondue</h1>
+                <p class="text-sm sm:text-base text-blue-100 mt-1">ระบบแจ้งเรื่อง • ตามหาของหาย • เสนอความเห็น</p>
+            </div>
+        </div>
+
+        <form id="reportForm" class="w-full max-w-2xl mx-auto px-6 py-8 space-y-6 flex-1">
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    <i class="fa-regular fa-user mr-1 text-blue-800"></i> ชื่อผู้แจ้ง
+                </label>
+                <input type="text" id="reporterName" required readonly
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-500 focus:outline-none">
+                <input type="hidden" id="lineUserId">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fa-solid fa-layer-group mr-1 text-blue-800"></i> เลือกประเภทเรื่องที่ต้องการแจ้ง
+                </label>
+                <div class="space-y-3">
+                    <label class="category-card block cursor-pointer">
+                        <input type="radio" name="mainCategory" value="ปัญหาที่พบ" class="hidden" required>
+                        <div class="category-body flex items-center gap-3 border-2 border-gray-200 rounded-2xl p-3.5 transition-all">
+                            <span class="cat-icon flex items-center justify-center w-11 h-11 rounded-xl bg-gray-100 text-blue-800 text-lg shrink-0 transition-all">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">ปัญหาที่พบ</p>
+                                <p class="text-xs text-gray-500">แจ้งสิ่งชำรุด เสียหาย หรือปัญหาในโรงเรียน</p>
+                            </div>
+                            <i class="cat-check fa-solid fa-circle-check text-blue-800 opacity-0 transition-opacity"></i>
+                        </div>
+                    </label>
+
+                    <label class="category-card block cursor-pointer">
+                        <input type="radio" name="mainCategory" value="ตามหาของหาย" class="hidden">
+                        <div class="category-body flex items-center gap-3 border-2 border-gray-200 rounded-2xl p-3.5 transition-all">
+                            <span class="cat-icon flex items-center justify-center w-11 h-11 rounded-xl bg-gray-100 text-blue-800 text-lg shrink-0 transition-all">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">ตามหาของหาย</p>
+                                <p class="text-xs text-gray-500">แจ้งของหาย หรือพบของที่มีผู้ทำหล่น</p>
+                            </div>
+                            <i class="cat-check fa-solid fa-circle-check text-blue-800 opacity-0 transition-opacity"></i>
+                        </div>
+                    </label>
+
+                    <label class="category-card block cursor-pointer">
+                        <input type="radio" name="mainCategory" value="เสนอความเห็นต่อสภานักเรียน" class="hidden">
+                        <div class="category-body flex items-center gap-3 border-2 border-gray-200 rounded-2xl p-3.5 transition-all">
+                            <span class="cat-icon flex items-center justify-center w-11 h-11 rounded-xl bg-gray-100 text-blue-800 text-lg shrink-0 transition-all">
+                                <i class="fa-solid fa-lightbulb"></i>
+                            </span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">เสนอความเห็นต่อสภานักเรียน</p>
+                                <p class="text-xs text-gray-500">เสนอแนะ ความคิดเห็น หรือร้องเรียนถึงสภานักเรียน</p>
+                            </div>
+                            <i class="cat-check fa-solid fa-circle-check text-blue-800 opacity-0 transition-opacity"></i>
+                        </div>
+                    </label>
+
+                    <label class="category-card block cursor-pointer">
+                        <input type="radio" name="mainCategory" value="other" class="hidden">
+                        <div class="category-body flex items-center gap-3 border-2 border-gray-200 rounded-2xl p-3.5 transition-all">
+                            <span class="cat-icon flex items-center justify-center w-11 h-11 rounded-xl bg-gray-100 text-blue-800 text-lg shrink-0 transition-all">
+                                <i class="fa-solid fa-ellipsis"></i>
+                            </span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">อื่นๆ</p>
+                                <p class="text-xs text-gray-500">ระบุหัวข้อเรื่องที่ต้องการแจ้งเอง</p>
+                            </div>
+                            <i class="cat-check fa-solid fa-circle-check text-blue-800 opacity-0 transition-opacity"></i>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="otherCategoryWrapper" class="hidden mt-3">
+                    <input type="text" id="otherCategoryInput" placeholder="ระบุหัวข้อเรื่องที่ต้องการแจ้ง..."
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-800/20 focus:border-blue-800 transition-all outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    <i class="fa-regular fa-file-lines mr-1 text-blue-800"></i> รายละเอียด
+                </label>
+                <textarea id="issueDetail" rows="4" required placeholder="อธิบายเรื่องที่ต้องการแจ้งให้ละเอียด เช่น สถานที่ ลักษณะของหาย หรือข้อเสนอแนะ..."
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-800/20 focus:border-blue-800 transition-all outline-none resize-none"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    <i class="fa-regular fa-image mr-1 text-blue-800"></i> แนบรูปภาพประกอบ
+                    <span class="text-xs font-normal text-gray-400">(ไม่บังคับ)</span>
+                </label>
+
+                <div class="relative group">
+                    <input type="file" id="imageInput" accept="image/*" onchange="previewImage(event)" class="hidden">
+                    <label for="imageInput" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 group-hover:border-blue-800 rounded-2xl p-6 cursor-pointer hover:bg-blue-50/40 transition-all duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 group-hover:text-blue-800 mb-2"></i>
+                        <span class="text-sm font-medium text-gray-600 group-hover:text-blue-800">กดเพื่อเลือกรูปภาพ หรือ ถ่ายรูป</span>
+                        <span class="text-xs text-gray-400 mt-1">ไฟล์ JPEG, PNG ขนาดไม่เกิน 5MB</span>
+                    </label>
+                </div>
+
+                <div id="previewContainer" class="hidden mt-3 relative rounded-2xl overflow-hidden border border-gray-200">
+                    <img id="imagePreview" src="#" alt="ภาพตัวอย่าง" class="w-full h-48 object-cover">
+                    <button type="button" onclick="removeImage()" class="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn"
+                class="w-full bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-950 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-md flex items-center justify-center gap-2 disabled:opacity-60">
+                <i class="fa-solid fa-paper-plane"></i> ส่งเรื่อง
+            </button>
+        </form>
+    </div>
+
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center text-white">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-300 mx-auto mb-4"></div>
+            <h3 class="text-lg font-semibold">กำลังบันทึกและส่งข้อมูล...</h3>
+            <p class="text-sm text-gray-300 mt-1">กรุณาอย่าปิดหน้านี้</p>
+        </div>
+    </div>
+
+    <script>
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwNOi5ygN32j8LKxFsUV_o9O1hVdBp9tGOq7W1sxNOla2pD4cigyok_NtkDV02EvVo/exec";
+        const LIFF_ID = "วาง_LIFF_ID_ตรงนี้";
+
+        let base64ImgString = "";
+
+        function previewImage(event) {
+            const input = event.target;
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert("ขนาดภาพเกิน 5MB กรุณาเลือกรูปภาพใหม่อีกครั้ง");
+                input.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                document.getElementById("imagePreview").src = reader.result;
+                base64ImgString = reader.result;
+                document.getElementById("previewContainer").classList.remove("hidden");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage() {
+            document.getElementById("imageInput").value = "";
+            document.getElementById("previewContainer").classList.add("hidden");
+            document.getElementById("imagePreview").src = "#";
+            base64ImgString = "";
+        }
+
+        async function initLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    document.getElementById("reporterName").value = profile.displayName;
+                    document.getElementById("lineUserId").value = profile.userId;
+                } else {
+                    liff.login();
+                }
+            } catch (error) {
+                console.error("LIFF Initialization failed", error);
+                document.getElementById("reporterName").value = "ผู้ใช้งานจำลอง (เดสก์ท็อป)";
+                document.getElementById("lineUserId").value = "U-TEST-USER-ID";
+            }
+        }
+
+        window.onload = initLiff;
+
+        document.querySelectorAll('input[name="mainCategory"]').forEach(function (radio) {
+            radio.addEventListener("change", function () {
+                const wrapper = document.getElementById("otherCategoryWrapper");
+                const otherInput = document.getElementById("otherCategoryInput");
+                if (radio.value === "other") {
+                    wrapper.classList.remove("hidden");
+                    otherInput.setAttribute("required", "required");
+                } else {
+                    wrapper.classList.add("hidden");
+                    otherInput.removeAttribute("required");
+                    otherInput.value = "";
+                }
+            });
+        });
+
+        document.getElementById("reportForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById("submitBtn");
+            const loadingOverlay = document.getElementById("loadingOverlay");
+            const selectedCat = document.querySelector('input[name="mainCategory"]:checked');
+
+            if (!selectedCat) {
+                alert("กรุณาเลือกประเภทเรื่องที่ต้องการแจ้ง");
+                return;
+            }
+
+            const otherCategoryValue = document.getElementById("otherCategoryInput").value.trim();
+            if (selectedCat.value === "other" && !otherCategoryValue) {
+                alert("กรุณาระบุหัวข้อเรื่องที่ต้องการแจ้ง");
+                return;
+            }
+
+            loadingOverlay.classList.remove("hidden");
+            submitBtn.disabled = true;
+
+            const payload = {
+                lineId: document.getElementById("lineUserId").value,
+                name: document.getElementById("reporterName").value,
+                category: selectedCat.value,
+                otherCategory: otherCategoryValue,
+                detail: document.getElementById("issueDetail").value,
+                image: base64ImgString
+            };
+
+            try {
+                await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                setTimeout(() => {
+                    loadingOverlay.classList.add("hidden");
+                    alert("แจ้งเรื่องสำเร็จ! ข้อมูลของคุณได้รับการบันทึกเรียบร้อยแล้ว");
+
+                    if (liff.isInClient()) {
+                        liff.closeWindow();
+                    } else {
+                        document.getElementById("reportForm").reset();
+                        removeImage();
+                        submitBtn.disabled = false;
+                    }
+                }, 2000);
+
+            } catch (error) {
+                loadingOverlay.classList.add("hidden");
+                submitBtn.disabled = false;
+                alert("เกิดข้อผิดพลาดในการส่งข้อมูล: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
