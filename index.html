@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>UDFondue | ระบบแจ้งเรื่องนักเรียน</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -169,6 +172,7 @@
         </div>
     </div>
 
+    <iframe name="gasFrame" style="display:none" title="gas"></iframe>
 
     <div id="successOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm mx-4 p-8 text-center">
@@ -291,15 +295,27 @@
             renderPreviews();
         }
 
-        async function postToGas(payload) {
-            await fetch(GAS_WEB_APP_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify(payload)
-            });
-            await new Promise(function (resolve) {
-                setTimeout(resolve, payload.action === "uploadImage" ? GAS_POST_DELAY_MS : 1500);
+        function postToGas(payload) {
+            return new Promise(function (resolve) {
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = GAS_WEB_APP_URL;
+                form.target = "gasFrame";
+                form.style.display = "none";
+
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "payload";
+                input.value = JSON.stringify(payload);
+                form.appendChild(input);
+
+                document.body.appendChild(form);
+                form.submit();
+
+                setTimeout(function () {
+                    document.body.removeChild(form);
+                    resolve();
+                }, payload.action === "uploadImage" ? GAS_POST_DELAY_MS : 1500);
             });
         }
 
