@@ -186,7 +186,6 @@
     <script>
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwNOi5ygN32j8LKxFsUV_o9O1hVdBp9tGOq7W1sxNOla2pD4cigyok_NtkDV02EvVo/exec";
         const LIFF_ID = "2010319415-epnUUdNV";
-        const API_VERSION_EXPECTED = "v3-split";
         const GAS_POST_DELAY_MS = 3000;
 
         const MAX_IMAGES = 5;
@@ -304,19 +303,6 @@
             });
         }
 
-        async function checkApiVersion() {
-            try {
-                const res = await fetch(GAS_WEB_APP_URL);
-                const data = await res.json();
-                if (data.version !== API_VERSION_EXPECTED) {
-                    console.warn("API version mismatch:", data.version, "expected:", API_VERSION_EXPECTED);
-                    window._apiOutdated = true;
-                }
-            } catch (err) {
-                console.warn("API version check failed:", err);
-            }
-        }
-
         function setLoadingMessage(title, subtitle) {
             document.getElementById("loadingTitle").textContent = title;
             document.getElementById("loadingSubtitle").textContent = subtitle;
@@ -346,7 +332,6 @@
         document.getElementById("newReportBtn").addEventListener("click", resetForm);
 
         async function initLiff() {
-            await checkApiVersion();
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
@@ -405,10 +390,6 @@
             const submitId = Date.now() + "-" + lineUserId;
 
             try {
-                if (window._apiOutdated) {
-                    alert("ระบบหลังบ้านยังเป็นเวอร์ชันเก่า\n\nกรุณา Deploy Apps Script ใหม่:\nDeploy → Manage deployments → New version\n\nข้อมูลอาจบันทึกไม่ครบจนกว่าจะ Deploy");
-                }
-
                 setLoadingMessage("กำลังบันทึกข้อมูล...", "กรุณาอย่าปิดหน้านี้");
                 await postToGas({
                     action: "submit",
