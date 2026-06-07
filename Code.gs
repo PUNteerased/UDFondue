@@ -178,8 +178,19 @@ function handleLegacy_(data, timestamp, payloadSize) {
 // ---------- Helpers ----------
 
 function parsePayload_(e) {
+  if (!e) {
+    throw new Error("doPost ต้องเรียกผ่าน Web App URL ไม่สามารถ Run จาก editor ได้");
+  }
   if (e.postData && e.postData.contents) {
-    return JSON.parse(e.postData.contents);
+    const contents = e.postData.contents;
+    try {
+      return JSON.parse(contents);
+    } catch (parseErr) {
+      if (e.parameter && e.parameter.payload) {
+        return JSON.parse(e.parameter.payload);
+      }
+      throw parseErr;
+    }
   }
   if (e.parameter && e.parameter.payload) {
     return JSON.parse(e.parameter.payload);
@@ -188,6 +199,7 @@ function parsePayload_(e) {
 }
 
 function getPayloadSize_(e) {
+  if (!e) return 0;
   if (e.postData && e.postData.contents) {
     return e.postData.contents.length;
   }

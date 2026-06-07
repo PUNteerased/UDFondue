@@ -169,7 +169,6 @@
         </div>
     </div>
 
-    <iframe name="gasFrame" style="display:none" title="gas"></iframe>
 
     <div id="successOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm mx-4 p-8 text-center">
@@ -293,27 +292,15 @@
             renderPreviews();
         }
 
-        function postToGas(payload) {
-            return new Promise(function (resolve) {
-                const form = document.createElement("form");
-                form.method = "POST";
-                form.action = GAS_WEB_APP_URL;
-                form.target = "gasFrame";
-                form.style.display = "none";
-
-                const input = document.createElement("input");
-                input.type = "hidden";
-                input.name = "payload";
-                input.value = JSON.stringify(payload);
-                form.appendChild(input);
-
-                document.body.appendChild(form);
-                form.submit();
-
-                setTimeout(function () {
-                    document.body.removeChild(form);
-                    resolve();
-                }, GAS_POST_DELAY_MS);
+        async function postToGas(payload) {
+            await fetch(GAS_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+            await new Promise(function (resolve) {
+                setTimeout(resolve, payload.action === "uploadImage" ? GAS_POST_DELAY_MS : 1500);
             });
         }
 
@@ -323,6 +310,7 @@
                 const data = await res.json();
                 if (data.version !== API_VERSION_EXPECTED) {
                     console.warn("API version mismatch:", data.version, "expected:", API_VERSION_EXPECTED);
+                    window._apiOutdated = true;
                 }
             } catch (err) {
                 console.warn("API version check failed:", err);
@@ -358,7 +346,7 @@
         document.getElementById("newReportBtn").addEventListener("click", resetForm);
 
         async function initLiff() {
-            checkApiVersion();
+            await checkApiVersion();
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
@@ -417,6 +405,10 @@
             const submitId = Date.now() + "-" + lineUserId;
 
             try {
+                if (window._apiOutdated) {
+                    alert("ระบบหลังบ้านยังเป็นเวอร์ชันเก่า\n\nกรุณา Deploy Apps Script ใหม่:\nDeploy → Manage deployments → New version\n\nข้อมูลอาจบันทึกไม่ครบจนกว่าจะ Deploy");
+                }
+
                 setLoadingMessage("กำลังบันทึกข้อมูล...", "กรุณาอย่าปิดหน้านี้");
                 await postToGas({
                     action: "submit",
