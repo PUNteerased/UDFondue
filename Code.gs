@@ -18,12 +18,13 @@ const COL = {
   TIME: 2,
   LINE_ID: 3,
   NAME: 4,
-  CATEGORY: 5,
-  DETAIL: 6,
-  IMAGE_COUNT: 7,
-  IMAGE_URL: 8,
-  SUBMIT_ID: 9,
-  DEBUG: 10
+  ROOM: 5,
+  CATEGORY: 6,
+  DETAIL: 7,
+  IMAGE_COUNT: 8,
+  IMAGE_URL: 9,
+  SUBMIT_ID: 10,
+  DEBUG: 11
 };
 
 const SHEET_HEADERS = [
@@ -31,6 +32,7 @@ const SHEET_HEADERS = [
   "เวลา",
   "LINE User ID",
   "ชื่อผู้แจ้ง",
+  "ห้อง",
   "ประเภทเรื่อง",
   "รายละเอียด",
   "จำนวนรูป",
@@ -80,6 +82,7 @@ function doGet(e) {
 function handleSubmit_(data, timestamp, payloadSize) {
   const name = data.name || "ไม่ระบุชื่อ";
   const lineId = data.lineId || "ไม่ระบุ ID";
+  const room = data.room || "ไม่ระบุห้อง";
   let category = data.category || "ไม่ได้เลือก";
   const detail = data.detail || "";
   const submitId = data.submitId || "";
@@ -98,6 +101,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
     formatTimeTh_(timestamp),
     lineId,
     name,
+    room,
     category,
     detail,
     imageCount,
@@ -164,6 +168,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
 
   const name = data.name || "ไม่ระบุชื่อ";
   const lineId = data.lineId || "ไม่ระบุ ID";
+  const room = data.room || "ไม่ระบุห้อง";
   let category = data.category || "ไม่ได้เลือก";
   const detail = data.detail || "";
 
@@ -208,6 +213,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
     formatTimeTh_(timestamp),
     lineId,
     name,
+    room,
     category,
     detail,
     images.length,
@@ -235,6 +241,7 @@ function testWriteSheet() {
       formatTimeTh_(timestamp),
       "TEST-LINE-ID",
       "ทดสอบจาก Editor",
+      "5/6",
       "ทดสอบ",
       "แถวทดสอบ " + API_VERSION,
       0,
