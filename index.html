@@ -70,6 +70,17 @@
             </div>
 
             <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    <i class="fa-solid fa-hashtag mr-1 text-blue-800"></i> เลขที่
+                </label>
+                <input type="text" id="studentNumber" required
+                    placeholder="เช่น 15, 23"
+                    inputmode="numeric"
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-800/20 focus:border-blue-800 transition-all outline-none">
+                <p class="text-xs text-gray-400 mt-1">เลขที่นักเรียนในห้อง</p>
+            </div>
+
+            <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                     <i class="fa-solid fa-layer-group mr-1 text-blue-800"></i> เลือกประเภทเรื่องที่ต้องการแจ้ง
                 </label>
@@ -411,6 +422,7 @@
                     lineId: lineUserId,
                     name: document.getElementById("reporterName").value,
                     room: document.getElementById("roomNumber").value.trim(),
+                    studentNo: document.getElementById("studentNumber").value.trim(),
                     category: selectedCat.value,
                     otherCategory: otherCategoryValue,
                     detail: document.getElementById("issueDetail").value,

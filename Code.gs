@@ -19,12 +19,13 @@ const COL = {
   LINE_ID: 3,
   NAME: 4,
   ROOM: 5,
-  CATEGORY: 6,
-  DETAIL: 7,
-  IMAGE_COUNT: 8,
-  IMAGE_URL: 9,
-  SUBMIT_ID: 10,
-  DEBUG: 11
+  STUDENT_NO: 6,
+  CATEGORY: 7,
+  DETAIL: 8,
+  IMAGE_COUNT: 9,
+  IMAGE_URL: 10,
+  SUBMIT_ID: 11,
+  DEBUG: 12
 };
 
 const SHEET_HEADERS = [
@@ -33,6 +34,7 @@ const SHEET_HEADERS = [
   "LINE User ID",
   "ชื่อผู้แจ้ง",
   "ห้อง",
+  "เลขที่",
   "ประเภทเรื่อง",
   "รายละเอียด",
   "จำนวนรูป",
@@ -83,6 +85,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
   const name = data.name || "ไม่ระบุชื่อ";
   const lineId = data.lineId || "ไม่ระบุ ID";
   const room = data.room || "ไม่ระบุห้อง";
+  const studentNo = data.studentNo || "ไม่ระบุเลขที่";
   let category = data.category || "ไม่ได้เลือก";
   const detail = data.detail || "";
   const submitId = data.submitId || "";
@@ -102,6 +105,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
     lineId,
     name,
     room,
+    studentNo,
     category,
     detail,
     imageCount,
@@ -169,6 +173,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
   const name = data.name || "ไม่ระบุชื่อ";
   const lineId = data.lineId || "ไม่ระบุ ID";
   const room = data.room || "ไม่ระบุห้อง";
+  const studentNo = data.studentNo || "ไม่ระบุเลขที่";
   let category = data.category || "ไม่ได้เลือก";
   const detail = data.detail || "";
 
@@ -214,6 +219,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
     lineId,
     name,
     room,
+    studentNo,
     category,
     detail,
     images.length,
@@ -242,6 +248,7 @@ function testWriteSheet() {
       "TEST-LINE-ID",
       "ทดสอบจาก Editor",
       "5/6",
+      "15",
       "ทดสอบ",
       "แถวทดสอบ " + API_VERSION,
       0,
