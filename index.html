@@ -96,11 +96,11 @@
 
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">
-                    <i class="fa-solid fa-layer-group mr-1 text-blue-800"></i> หมวดหมู่ปัญหา
+                    <i class="fa-solid fa-layer-group mr-1 text-blue-800"></i> เลือกประเภทเรื่องที่ต้องการแจ้ง
                 </label>
                 <button type="button" id="categoryTrigger"
                     class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-blue-800/40 hover:bg-blue-50/30 transition-all text-left">
-                    <span id="categoryDisplay" class="text-gray-400">แตะเพื่อเลือกหมวดหมู่ปัญหา</span>
+                    <span id="categoryDisplay" class="text-gray-400">แตะเพื่อเลือกประเภทเรื่อง</span>
                     <i class="fa-solid fa-chevron-down text-gray-400 text-sm shrink-0"></i>
                 </button>
                 <input type="hidden" id="categoryValue" required>
@@ -164,7 +164,7 @@
         <div id="categoryModalPanel" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-800">เลือกหมวดหมู่ปัญหา</h3>
+                    <h3 class="text-lg font-bold text-gray-800">เลือกประเภทเรื่อง</h3>
                     <p class="text-xs text-gray-400 mt-0.5">แตะการ์ดด้านล่างเพื่อเลือก</p>
                 </div>
                 <button type="button" id="closeCategoryModal"
@@ -173,37 +173,33 @@
                 </button>
             </div>
             <div class="overflow-y-auto px-5 py-4 pb-8">
+                <p class="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-3">ประเภทหลัก</p>
                 <div class="grid grid-cols-2 gap-3" id="categoryGrid">
-                    <button type="button" data-value="อุปกรณ์ชำรุด" data-icon="fa-screwdriver-wrench"
-                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[120px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
+                    <button type="button" data-value="ปัญหาที่พบ" data-icon="fa-triangle-exclamation"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[118px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
                         <span class="cat-pick-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-800 text-xl transition-all">
-                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                            <i class="fa-solid fa-triangle-exclamation"></i>
                         </span>
-                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">อุปกรณ์ชำรุด</span>
+                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">ปัญหาที่พบ</span>
                         <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
                     </button>
-                    <button type="button" data-value="ระบบคอมพิวเตอร์/โปรแกรม" data-icon="fa-laptop"
-                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[120px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
+                    <button type="button" data-value="ตามหาของหาย" data-icon="fa-magnifying-glass"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[118px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
                         <span class="cat-pick-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-800 text-xl transition-all">
-                            <i class="fa-solid fa-laptop"></i>
+                            <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
-                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">ระบบคอมพิวเตอร์/โปรแกรม</span>
+                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">ตามหาของหาย</span>
                         <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
                     </button>
-                    <button type="button" data-value="อาคารสถานที่" data-icon="fa-building"
-                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[120px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
-                        <span class="cat-pick-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-800 text-xl transition-all">
-                            <i class="fa-solid fa-building"></i>
+                    <button type="button" data-value="เสนอความคิดเห็นต่อสภานักเรียน" data-icon="fa-lightbulb"
+                        class="cat-pick-card relative col-span-2 flex flex-row items-center gap-3 p-4 min-h-[72px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
+                        <span class="cat-pick-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-800 text-xl transition-all shrink-0">
+                            <i class="fa-solid fa-lightbulb"></i>
                         </span>
-                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">อาคารสถานที่</span>
-                        <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
-                    </button>
-                    <button type="button" data-value="ความสะอาด" data-icon="fa-broom"
-                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[120px] rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-300 transition-all active:scale-[0.97]">
-                        <span class="cat-pick-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-800 text-xl transition-all">
-                            <i class="fa-solid fa-broom"></i>
-                        </span>
-                        <span class="text-sm font-semibold text-gray-800 text-center leading-tight">ความสะอาด</span>
+                        <div class="flex-1 text-left">
+                            <span class="text-sm font-semibold text-gray-800 block">เสนอความคิดเห็นต่อสภานักเรียน</span>
+                            <span class="text-xs text-gray-400">เสนอแนะ ความคิดเห็น หรือร้องเรียน</span>
+                        </div>
                         <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
                     </button>
                     <button type="button" data-value="อื่นๆ" data-icon="fa-ellipsis"
@@ -212,6 +208,42 @@
                             <i class="fa-solid fa-ellipsis"></i>
                         </span>
                         <span class="text-sm font-semibold text-gray-800">อื่นๆ — ระบุหัวข้อเอง</span>
+                        <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
+                    </button>
+                </div>
+
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-5 mb-3">หมวดหมู่เพิ่มเติม</p>
+                <div class="grid grid-cols-2 gap-3" id="categoryGridExtra">
+                    <button type="button" data-value="อุปกรณ์ชำรุด" data-icon="fa-screwdriver-wrench"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[110px] rounded-2xl border-2 border-gray-100 bg-gray-50/60 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.97]">
+                        <span class="cat-pick-icon flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-blue-800 text-lg transition-all">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                        </span>
+                        <span class="text-xs font-semibold text-gray-700 text-center leading-tight">อุปกรณ์ชำรุด</span>
+                        <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
+                    </button>
+                    <button type="button" data-value="ระบบคอมพิวเตอร์/โปรแกรม" data-icon="fa-laptop"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[110px] rounded-2xl border-2 border-gray-100 bg-gray-50/60 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.97]">
+                        <span class="cat-pick-icon flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-blue-800 text-lg transition-all">
+                            <i class="fa-solid fa-laptop"></i>
+                        </span>
+                        <span class="text-xs font-semibold text-gray-700 text-center leading-tight">ระบบคอมพิวเตอร์/โปรแกรม</span>
+                        <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
+                    </button>
+                    <button type="button" data-value="อาคารสถานที่" data-icon="fa-building"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[110px] rounded-2xl border-2 border-gray-100 bg-gray-50/60 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.97]">
+                        <span class="cat-pick-icon flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-blue-800 text-lg transition-all">
+                            <i class="fa-solid fa-building"></i>
+                        </span>
+                        <span class="text-xs font-semibold text-gray-700 text-center leading-tight">อาคารสถานที่</span>
+                        <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
+                    </button>
+                    <button type="button" data-value="ความสะอาด" data-icon="fa-broom"
+                        class="cat-pick-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[110px] rounded-2xl border-2 border-gray-100 bg-gray-50/60 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.97]">
+                        <span class="cat-pick-icon flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-blue-800 text-lg transition-all">
+                            <i class="fa-solid fa-broom"></i>
+                        </span>
+                        <span class="text-xs font-semibold text-gray-700 text-center leading-tight">ความสะอาด</span>
                         <i class="cat-pick-check fa-solid fa-circle-check absolute top-2.5 right-2.5 text-blue-800 opacity-0 transition-opacity"></i>
                     </button>
                 </div>
@@ -381,7 +413,7 @@
 
         function clearCategorySelection() {
             document.getElementById("categoryValue").value = "";
-            document.getElementById("categoryDisplay").textContent = "แตะเพื่อเลือกหมวดหมู่ปัญหา";
+            document.getElementById("categoryDisplay").textContent = "แตะเพื่อเลือกประเภทเรื่อง";
             document.getElementById("categoryDisplay").className = "text-gray-400";
             document.getElementById("categoryTrigger").classList.remove("border-blue-800", "bg-blue-50/40");
             document.querySelectorAll(".cat-pick-card").forEach(function (card) {
@@ -477,7 +509,7 @@
             const categoryValue = document.getElementById("categoryValue").value;
 
             if (!categoryValue) {
-                alert("กรุณาเลือกหมวดหมู่ปัญหา");
+                alert("กรุณาเลือกประเภทเรื่องที่ต้องการแจ้ง");
                 openCategoryModal();
                 return;
             }
