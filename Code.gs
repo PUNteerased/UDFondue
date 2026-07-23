@@ -11,6 +11,8 @@ const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
+const LINE_ACCESS_TOKEN = "YOUR_LINE_CHANNEL_ACCESS_TOKEN";
+const LINE_THANK_YOU_MESSAGE = "ขอบคุณสำหรับข้อมูลนะจ๊ะ ทางเราจะประสานงานต่อให้นะครับบ";
 const TZ = "GMT+7";
 
 const COL = {
@@ -115,6 +117,11 @@ function handleSubmit_(data, timestamp, payloadSize) {
   ]);
 
   writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
+
+  if (imageCount === 0) {
+    sendLineThankYou_(lineId, submitId);
+  }
+
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
 }
 
@@ -145,6 +152,12 @@ function handleUploadImage_(data, timestamp, payloadSize) {
         newVal = current + "\n" + url;
       }
       sheet.getRange(row, COL.IMAGE_URL).setValue(newVal);
+
+      const imageCount = Number(sheet.getRange(row, COL.IMAGE_COUNT).getValue()) || 0;
+      const lineId = sheet.getRange(row, COL.LINE_ID).getValue();
+      if (imageIndex >= imageCount && imageCount > 0) {
+        sendLineThankYou_(lineId, submitId);
+      }
     } else {
       errorMsg = "ไม่พบแถว submitId: " + submitId;
     }
@@ -230,7 +243,41 @@ function handleLegacy_(data, timestamp, payloadSize) {
 
   writeLog_(timestamp, payloadSize, "legacy", images.length, urls.length, urls.length, uploadErrors.join(" | "), "success", "");
 
+  sendLineThankYou_(lineId, "");
+
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+}
+
+// ---------- LINE Messaging API ----------
+
+function sendLineThankYou_(userId, submitId) {
+  if (!userId || userId === "ไม่ระบุ ID" || String(userId).indexOf("TEST") !== -1) return;
+  if (!LINE_ACCESS_TOKEN || LINE_ACCESS_TOKEN === "YOUR_LINE_CHANNEL_ACCESS_TOKEN") {
+    Logger.log("LINE_ACCESS_TOKEN not configured, skip push message");
+    return;
+  }
+
+  const payload = {
+    to: userId,
+    messages: [{ type: "text", text: LINE_THANK_YOU_MESSAGE }]
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + LINE_ACCESS_TOKEN },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", options);
+  const code = response.getResponseCode();
+
+  if (code !== 200) {
+    const errText = response.getContentText();
+    Logger.log("LINE Push failed (" + code + "): " + errText);
+    writeDebugLog_(submitId, "LINE push: " + errText);
+  }
 }
 
 // ---------- Diagnostics (Run จาก editor) ----------
