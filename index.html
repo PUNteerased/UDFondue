@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบแจ้งปัญหาและรายงานออนไลน์</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+    <style>
+        body {
+            font-family: 'Anuphan', sans-serif;
+            background-color: #f0f4f8;
+        }
+        #dropzone.dragover {
+            border-color: #6366f1;
+            background-color: #eef2ff;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center py-6 px-4 sm:py-10">
+
+    <div class="w-full max-w-lg">
+        <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+            <!-- Header Gradient -->
+            <div class="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white px-6 py-8 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm mb-3">
+                    <i class="fa-solid fa-headset text-3xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold">แจ้งปัญหา / รายงาน</h1>
+                <p class="text-sm text-white/80 mt-1">ส่งเรื่องให้เจ้าหน้าที่ตรวจสอบได้ทันที</p>
+            </div>
+
+            <form id="reportForm" class="p-6 space-y-5">
+
+                <!-- Hidden fields from LINE Profile -->
+                <input type="hidden" id="reporterName">
+                <input type="hidden" id="lineUserId">
+
+                <!-- Category -->
+                <div>
+                    <label for="category" class="block text-sm font-semibold text-gray-700 mb-1.5">
+                        <i class="fa-solid fa-list-ul mr-1 text-indigo-600"></i> หมวดหมู่ปัญหา
+                    </label>
+                    <select id="category" required
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none">
+                        <option value="" disabled selected>-- เลือกหมวดหมู่ --</option>
+                        <option value="อุปกรณ์ชำรุด">อุปกรณ์ชำรุด</option>
+                        <option value="ระบบคอมพิวเตอร์/โปรแกรม">ระบบคอมพิวเตอร์/โปรแกรม</option>
+                        <option value="อาคารสถานที่">อาคารสถานที่</option>
+                        <option value="ความสะอาด">ความสะอาด</option>
+                        <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                </div>
+
+                <!-- Other category (shown when "อื่นๆ" selected) -->
+                <div id="otherCategoryWrapper" class="hidden">
+                    <label for="otherCategory" class="block text-sm font-semibold text-gray-700 mb-1.5">
+                        <i class="fa-solid fa-pen mr-1 text-indigo-600"></i> ระบุหัวข้อ
+                    </label>
+                    <input type="text" id="otherCategory" placeholder="กรุณาระบุหัวข้อปัญหา..."
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
+                </div>
+
+                <!-- Detail -->
+                <div>
+                    <label for="detail" class="block text-sm font-semibold text-gray-700 mb-1.5">
+                        <i class="fa-regular fa-file-lines mr-1 text-indigo-600"></i> รายละเอียดปัญหา
+                    </label>
+                    <textarea id="detail" rows="4" required placeholder="อธิบายปัญหาที่พบให้ละเอียด เช่น สถานที่ เวลา และลักษณะของปัญหา..."
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all"></textarea>
+                </div>
+
+                <!-- Image Upload -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                        <i class="fa-regular fa-image mr-1 text-indigo-600"></i> แนบรูปภาพประกอบ
+                        <span class="text-xs font-normal text-gray-400">(ไม่บังคับ, สูงสุด 5MB)</span>
+                    </label>
+
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+
+                    <div id="dropzone"
+                        class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition-all">
+                        <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-sm font-medium text-gray-600">คลิกหรือลากรูปมาวางที่นี่</p>
+                        <p class="text-xs text-gray-400 mt-1">รองรับไฟล์รูปภาพ JPEG, PNG</p>
+                    </div>
+
+                    <div id="previewWrapper" class="hidden mt-3 relative rounded-2xl overflow-hidden border border-gray-200">
+                        <img id="imagePreview" src="" alt="ตัวอย่างรูป" class="w-full max-h-64 object-contain bg-gray-50">
+                        <button type="button" id="removeImageBtn"
+                            class="absolute top-2 right-2 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                    <i class="fa-solid fa-paper-plane"></i> ส่งรายงาน
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="text-center text-white">
+            <div class="animate-spin rounded-full h-16 w-16 border-4 border-white/30 border-t-white mx-auto mb-4"></div>
+            <p class="text-lg font-semibold">กำลังส่งข้อมูล...</p>
+            <p class="text-sm text-white/70 mt-1">กรุณาอย่าปิดหน้านี้</p>
+        </div>
+    </div>
+
+    <script>
+        const LIFF_ID = "YOUR_LIFF_ID";
+        const GAS_WEB_APP_URL = "YOUR_GAS_URL";
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+        let selectedFile = null;
+        let base64Image = "";
+
+        async function initLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                const profile = await liff.getProfile();
+                document.getElementById("reporterName").value = profile.displayName;
+                document.getElementById("lineUserId").value = profile.userId;
+            } catch (error) {
+                console.error("LIFF init failed:", error);
+                document.getElementById("reporterName").value = "ผู้ใช้ทดสอบ";
+                document.getElementById("lineUserId").value = "U-TEST-USER-ID";
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise(function (resolve, reject) {
+                const reader = new FileReader();
+                reader.onload = function () { resolve(reader.result); };
+                reader.onerror = function () { reject(new Error("อ่านไฟล์ไม่สำเร็จ")); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleImageSelect(file) {
+            if (!file || !file.type.startsWith("image/")) {
+                alert("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+                return;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+                alert("ขนาดไฟล์เกิน 5MB กรุณาเลือกรูปที่เล็กกว่า");
+                return;
+            }
+
+            selectedFile = file;
+            base64Image = await fileToBase64(file);
+
+            document.getElementById("imagePreview").src = base64Image;
+            document.getElementById("previewWrapper").classList.remove("hidden");
+            document.getElementById("dropzone").classList.add("hidden");
+        }
+
+        function removeImage() {
+            selectedFile = null;
+            base64Image = "";
+            document.getElementById("imageInput").value = "";
+            document.getElementById("imagePreview").src = "";
+            document.getElementById("previewWrapper").classList.add("hidden");
+            document.getElementById("dropzone").classList.remove("hidden");
+        }
+
+        document.getElementById("category").addEventListener("change", function () {
+            const wrapper = document.getElementById("otherCategoryWrapper");
+            const otherInput = document.getElementById("otherCategory");
+
+            if (this.value === "อื่นๆ") {
+                wrapper.classList.remove("hidden");
+                otherInput.setAttribute("required", "required");
+            } else {
+                wrapper.classList.add("hidden");
+                otherInput.removeAttribute("required");
+                otherInput.value = "";
+            }
+        });
+
+        const dropzone = document.getElementById("dropzone");
+        const imageInput = document.getElementById("imageInput");
+
+        dropzone.addEventListener("click", function () { imageInput.click(); });
+
+        dropzone.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+        dropzone.addEventListener("dragleave", function () {
+            dropzone.classList.remove("dragover");
+        });
+        dropzone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+            const file = e.dataTransfer.files[0];
+            if (file) handleImageSelect(file);
+        });
+
+        imageInput.addEventListener("change", function () {
+            const file = imageInput.files[0];
+            if (file) handleImageSelect(file);
+        });
+
+        document.getElementById("removeImageBtn").addEventListener("click", removeImage);
+
+        document.getElementById("reportForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const category = document.getElementById("category").value;
+            const otherCategory = document.getElementById("otherCategory").value.trim();
+
+            if (category === "อื่นๆ" && !otherCategory) {
+                alert("กรุณาระบุหัวข้อเมื่อเลือกหมวดหมู่ \"อื่นๆ\"");
+                return;
+            }
+
+            const loadingOverlay = document.getElementById("loadingOverlay");
+            const submitBtn = document.getElementById("submitBtn");
+
+            loadingOverlay.classList.remove("hidden");
+            submitBtn.disabled = true;
+
+            const payload = {
+                userId: document.getElementById("lineUserId").value,
+                name: document.getElementById("reporterName").value,
+                category: category,
+                otherCategory: otherCategory,
+                detail: document.getElementById("detail").value.trim(),
+                image: base64Image
+            };
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    alert("ขอบคุณที่แจ้งปัญหา\nเราได้รับเรื่องของคุณแล้ว เจ้าหน้าที่จะรีบตรวจสอบ");
+                    if (typeof liff !== "undefined" && liff.isInClient()) {
+                        liff.closeWindow();
+                    }
+                } else {
+                    throw new Error(result.message || "ส่งข้อมูลไม่สำเร็จ");
+                }
+            } catch (error) {
+                alert("เกิดข้อผิดพลาด: " + error.message);
+            } finally {
+                loadingOverlay.classList.add("hidden");
+                submitBtn.disabled = false;
+            }
+        });
+
+        window.onload = initLiff;
+    </script>
+</body>
+</html>
