@@ -11,7 +11,7 @@ const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
-const LINE_ACCESS_TOKEN = "ea574e1bbea7efaf7778f9c69d6671ac";
+const LINE_ACCESS_TOKEN = "1zQJQDz1un38gxqKc4Y91joSXB6oItmlQY9yG8EduB65R73XcMkHDkJ5pwBEkykFwWWgaRn4nv2sZer6yQglHR6UuJ/LE7Mqe1LsvhmUfKK/ABHu50jIpz6t8FxDuXcwNUo9q+RmWoXoqKUB9yZSIgdB04t89/1O/w1cDnyilFU=";
 const LINE_THANK_YOU_MESSAGE = "ปัญหาของคุณได้รับรู้แล้วแต่ไม่รับเรื่อง\nทางเราจะประสานอินให้นะครับ";
 const TZ = "GMT+7";
 
@@ -314,12 +314,12 @@ function pingDrive() {
   try {
     const timestamp = new Date();
     const rootFolder = getDriveFolder_();
-    const dateFolder = getOrCreateDateFolder_(rootFolder, formatDateTh_(timestamp));
+    const dayFolder = getOrCreateDayFolder_(rootFolder, timestamp);
     const ext = "txt";
     const fileName = formatTimeFile_(timestamp, 1) + "." + ext;
     const blob = Utilities.newBlob("UDFondue ping test " + API_VERSION, "text/plain", fileName);
-    const file = dateFolder.createFile(blob);
-    return "OK: สร้างไฟล์ " + file.getName() + " ในโฟลเดอร์ " + dateFolder.getName() + " (API " + API_VERSION + ")";
+    const file = dayFolder.createFile(blob);
+    return "OK: สร้างไฟล์ " + file.getName() + " ในโฟลเดอร์ " + dayFolder.getName() + " (API " + API_VERSION + ")";
   } catch (err) {
     return "ERROR: " + err.toString();
   }
@@ -343,12 +343,22 @@ function formatTimeFile_(date, index) {
   return base;
 }
 
-function getOrCreateDateFolder_(rootFolder, dateStr) {
-  const folders = rootFolder.getFoldersByName(dateStr);
+function getOrCreateSubfolder_(parentFolder, name) {
+  const folders = parentFolder.getFoldersByName(name);
   if (folders.hasNext()) {
     return folders.next();
   }
-  return rootFolder.createFolder(dateStr);
+  return parentFolder.createFolder(name);
+}
+
+function getOrCreateDayFolder_(rootFolder, timestamp) {
+  const year = Utilities.formatDate(timestamp, TZ, "yyyy");
+  const month = Utilities.formatDate(timestamp, TZ, "MM");
+  const day = Utilities.formatDate(timestamp, TZ, "dd");
+
+  const yearFolder = getOrCreateSubfolder_(rootFolder, year);
+  const monthFolder = getOrCreateSubfolder_(yearFolder, month);
+  return getOrCreateSubfolder_(monthFolder, day);
 }
 
 function getSpreadsheet_() {
@@ -403,7 +413,7 @@ function uploadImage_(base64Image, timestamp, index) {
   if (!base64Image || base64Image.indexOf(",") === -1) return "";
 
   const rootFolder = getDriveFolder_();
-  const dateFolder = getOrCreateDateFolder_(rootFolder, formatDateTh_(timestamp));
+  const dayFolder = getOrCreateDayFolder_(rootFolder, timestamp);
   const splitData = base64Image.split(",");
   const contentType = splitData[0].match(/:(.*?);/)[1];
   const rawBase64 = splitData[1];
@@ -416,7 +426,7 @@ function uploadImage_(base64Image, timestamp, index) {
 
   const fileName = formatTimeFile_(timestamp, index) + "." + extension;
   const blob = Utilities.newBlob(decodedImg, contentType, fileName);
-  const file = dateFolder.createFile(blob);
+  const file = dayFolder.createFile(blob);
 
   try {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
