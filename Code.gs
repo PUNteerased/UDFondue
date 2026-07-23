@@ -11,8 +11,8 @@ const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
-const LINE_ACCESS_TOKEN = "YOUR_LINE_CHANNEL_ACCESS_TOKEN";
-const LINE_THANK_YOU_MESSAGE = "ขอบคุณสำหรับข้อมูลนะจ๊ะ ทางเราจะประสานงานต่อให้นะครับบ";
+const LINE_ACCESS_TOKEN = "ea574e1bbea7efaf7778f9c69d6671ac";
+const LINE_THANK_YOU_MESSAGE = "ปัญหาของคุณได้รับรู้แล้วแต่ไม่รับเรื่อง\nทางเราจะประสานอินให้นะครับ";
 const TZ = "GMT+7";
 
 const COL = {
