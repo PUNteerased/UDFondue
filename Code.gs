@@ -6,14 +6,25 @@
  * การ Save อย่างเดียวไม่ทำให้ Web App URL ใช้โค้ดใหม่
  */
 
-const API_VERSION = "v4-drive-sheet";
+const API_VERSION = "v5-tracking";
 const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
 const LINE_ACCESS_TOKEN = "1zQJQDz1un38gxqKc4Y91joSXB6oItmlQY9yG8EduB65R73XcMkHDkJ5pwBEkykFwWWgaRn4nv2sZer6yQglHR6UuJ/LE7Mqe1LsvhmUfKK/ABHu50jIpz6t8FxDuXcwNUo9q+RmWoXoqKUB9yZSIgdB04t89/1O/w1cDnyilFU=";
 const LINE_THANK_YOU_MESSAGE = "ปัญหาของคุณได้รับรู้แล้วแต่ไม่รับเรื่อง\nทางเราจะประสานอินให้นะครับ";
+const ADMIN_PASSWORD = "YOUR_ADMIN_PASSWORD";
+const ADMIN_TOKEN_TTL_SEC = 28800;
+const DEFAULT_STATUS = "รับเรื่องแล้ว";
 const TZ = "GMT+7";
+
+const STATUS_OPTIONS = [
+  "รับเรื่องแล้ว",
+  "กำลังดำเนินการ",
+  "รอข้อมูลเพิ่ม",
+  "เสร็จสิ้น",
+  "ปิดเรื่อง"
+];
 
 const COL = {
   DATE: 1,
@@ -27,7 +38,10 @@ const COL = {
   IMAGE_COUNT: 9,
   IMAGE_URL: 10,
   SUBMIT_ID: 11,
-  DEBUG: 12
+  DEBUG: 12,
+  STATUS: 13,
+  ADMIN_NOTE: 14,
+  STATUS_UPDATED: 15
 };
 
 const SHEET_HEADERS = [
@@ -42,7 +56,10 @@ const SHEET_HEADERS = [
   "จำนวนรูป",
   "ลิงก์รูปภาพ",
   "Submit ID",
-  "Debug"
+  "Debug",
+  "สถานะ",
+  "หมายเหตุเจ้าหน้าที่",
+  "อัปเดตสถานะล่าสุด"
 ];
 
 function doPost(e) {
@@ -59,6 +76,21 @@ function doPost(e) {
     }
     if (action === "uploadImage") {
       return handleUploadImage_(data, timestamp, payloadSize);
+    }
+    if (action === "trackList") {
+      return handleTrackList_(data);
+    }
+    if (action === "trackDetail") {
+      return handleTrackDetail_(data);
+    }
+    if (action === "adminAuth") {
+      return handleAdminAuth_(data);
+    }
+    if (action === "adminList") {
+      return handleAdminList_(data);
+    }
+    if (action === "adminUpdate") {
+      return handleAdminUpdate_(data, timestamp);
     }
 
     return handleLegacy_(data, timestamp, payloadSize);
@@ -101,20 +133,22 @@ function handleSubmit_(data, timestamp, payloadSize) {
 
   const sheet = getSheet_();
   ensureSheetHeaders_(sheet);
-  sheet.appendRow([
-    formatDateTh_(timestamp),
-    formatTimeTh_(timestamp),
-    lineId,
-    name,
-    room,
-    studentNo,
-    category,
-    detail,
-    imageCount,
-    imageUrl,
-    submitId,
-    ""
-  ]);
+  sheet.appendRow(buildReportRow_({
+    timestamp: timestamp,
+    lineId: lineId,
+    name: name,
+    room: room,
+    studentNo: studentNo,
+    category: category,
+    detail: detail,
+    imageCount: imageCount,
+    imageUrl: imageUrl,
+    submitId: submitId,
+    debug: "",
+    status: DEFAULT_STATUS,
+    adminNote: "",
+    statusUpdated: formatDateTimeTh_(timestamp)
+  }));
 
   writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
 
@@ -226,26 +260,166 @@ function handleLegacy_(data, timestamp, payloadSize) {
 
   const sheet = getSheet_();
   ensureSheetHeaders_(sheet);
-  sheet.appendRow([
-    formatDateTh_(timestamp),
-    formatTimeTh_(timestamp),
-    lineId,
-    name,
-    room,
-    studentNo,
-    category,
-    detail,
-    images.length,
-    imageUrl,
-    "",
-    uploadErrors.join(" | ")
-  ]);
+  sheet.appendRow(buildReportRow_({
+    timestamp: timestamp,
+    lineId: lineId,
+    name: name,
+    room: room,
+    studentNo: studentNo,
+    category: category,
+    detail: detail,
+    imageCount: images.length,
+    imageUrl: imageUrl,
+    submitId: "",
+    debug: uploadErrors.join(" | "),
+    status: DEFAULT_STATUS,
+    adminNote: "",
+    statusUpdated: formatDateTimeTh_(timestamp)
+  }));
 
   writeLog_(timestamp, payloadSize, "legacy", images.length, urls.length, urls.length, uploadErrors.join(" | "), "success", "");
 
   sendLineThankYou_(lineId, "");
 
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+}
+
+// ---------- Tracking (นักเรียน) ----------
+
+function handleTrackList_(data) {
+  const lineId = data.lineId || "";
+  if (!lineId) {
+    return jsonResponse_({ status: "error", message: "ไม่พบ LINE User ID" });
+  }
+
+  const sheet = getSheet_();
+  const rows = getAllReportRows_(sheet);
+  const reports = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const report = rowToReportObject_(rows[i]);
+    if (String(report.lineId) === String(lineId)) {
+      reports.push(report);
+    }
+  }
+
+  reports.sort(function (a, b) {
+    return String(b.submitId).localeCompare(String(a.submitId));
+  });
+
+  return jsonResponse_({ status: "success", reports: reports });
+}
+
+function handleTrackDetail_(data) {
+  const lineId = data.lineId || "";
+  const submitId = data.submitId || "";
+  if (!lineId || !submitId) {
+    return jsonResponse_({ status: "error", message: "ข้อมูลไม่ครบ" });
+  }
+
+  const sheet = getSheet_();
+  const row = findRowBySubmitId_(sheet, submitId);
+  if (row < 0) {
+    return jsonResponse_({ status: "error", message: "ไม่พบเลขที่แจ้งนี้" });
+  }
+
+  const report = rowToReportObject_(sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0]);
+  if (String(report.lineId) !== String(lineId)) {
+    return jsonResponse_({ status: "error", message: "ไม่มีสิทธิ์ดูเรื่องนี้" });
+  }
+
+  return jsonResponse_({ status: "success", report: report });
+}
+
+// ---------- Admin ----------
+
+function handleAdminAuth_(data) {
+  const password = data.password || "";
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD === "YOUR_ADMIN_PASSWORD") {
+    return jsonResponse_({ status: "error", message: "ยังไม่ได้ตั้งรหัส Admin ใน Code.gs" });
+  }
+  if (password !== ADMIN_PASSWORD) {
+    return jsonResponse_({ status: "error", message: "รหัสผ่านไม่ถูกต้อง" });
+  }
+
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put("admin_" + token, "1", ADMIN_TOKEN_TTL_SEC);
+  return jsonResponse_({ status: "success", adminToken: token });
+}
+
+function handleAdminList_(data) {
+  if (!verifyAdminToken_(data.adminToken)) {
+    return jsonResponse_({ status: "error", message: "กรุณาเข้าสู่ระบบใหม่" });
+  }
+
+  const filterStatus = data.filterStatus || "";
+  const search = (data.search || "").toLowerCase().trim();
+  const sheet = getSheet_();
+  const rows = getAllReportRows_(sheet);
+  const reports = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const report = rowToReportObject_(rows[i]);
+    if (filterStatus && report.status !== filterStatus) continue;
+    if (search) {
+      const haystack = [
+        report.name,
+        report.room,
+        report.studentNo,
+        report.category,
+        report.submitId,
+        report.detail
+      ].join(" ").toLowerCase();
+      if (haystack.indexOf(search) === -1) continue;
+    }
+    reports.push(report);
+  }
+
+  reports.sort(function (a, b) {
+    return String(b.submitId).localeCompare(String(a.submitId));
+  });
+
+  return jsonResponse_({
+    status: "success",
+    reports: reports,
+    statusOptions: STATUS_OPTIONS
+  });
+}
+
+function handleAdminUpdate_(data, timestamp) {
+  if (!verifyAdminToken_(data.adminToken)) {
+    return jsonResponse_({ status: "error", message: "กรุณาเข้าสู่ระบบใหม่" });
+  }
+
+  const submitId = data.submitId || "";
+  const status = data.status || "";
+  const adminNote = data.adminNote || "";
+
+  if (!submitId) {
+    return jsonResponse_({ status: "error", message: "ไม่พบ Submit ID" });
+  }
+  if (STATUS_OPTIONS.indexOf(status) === -1) {
+    return jsonResponse_({ status: "error", message: "สถานะไม่ถูกต้อง" });
+  }
+
+  const sheet = getSheet_();
+  const row = findRowBySubmitId_(sheet, submitId);
+  if (row < 0) {
+    return jsonResponse_({ status: "error", message: "ไม่พบเรื่องนี้" });
+  }
+
+  const updatedAt = formatDateTimeTh_(timestamp);
+  sheet.getRange(row, COL.STATUS).setValue(status);
+  sheet.getRange(row, COL.ADMIN_NOTE).setValue(adminNote);
+  sheet.getRange(row, COL.STATUS_UPDATED).setValue(updatedAt);
+
+  const report = rowToReportObject_(sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0]);
+  return jsonResponse_({ status: "success", message: "อัปเดตสถานะเรียบร้อย", report: report });
+}
+
+function verifyAdminToken_(token) {
+  if (!token) return false;
+  return CacheService.getScriptCache().get("admin_" + token) === "1";
 }
 
 // ---------- LINE Messaging API ----------
@@ -289,20 +463,22 @@ function testWriteSheet() {
   try {
     const sheet = getSheet_();
     ensureSheetHeaders_(sheet);
-    sheet.appendRow([
-      formatDateTh_(timestamp),
-      formatTimeTh_(timestamp),
-      "TEST-LINE-ID",
-      "ทดสอบจาก Editor",
-      "5/6",
-      "15",
-      "ทดสอบ",
-      "แถวทดสอบ " + API_VERSION,
-      0,
-      "",
-      submitId,
-      "testWriteSheet"
-    ]);
+    sheet.appendRow(buildReportRow_({
+      timestamp: timestamp,
+      lineId: "TEST-LINE-ID",
+      name: "ทดสอบจาก Editor",
+      room: "5/6",
+      studentNo: "15",
+      category: "ทดสอบ",
+      detail: "แถวทดสอบ " + API_VERSION,
+      imageCount: 0,
+      imageUrl: "",
+      submitId: submitId,
+      debug: "testWriteSheet",
+      status: DEFAULT_STATUS,
+      adminNote: "",
+      statusUpdated: formatDateTimeTh_(timestamp)
+    }));
     writeLog_(timestamp, 0, "test", 0, 0, 0, "", "success", submitId);
     return "OK: เขียน Sheet (" + SHEET_NAME + ") + Log สำเร็จ (API " + API_VERSION + ")";
   } catch (err) {
@@ -333,6 +509,10 @@ function formatDateTh_(date) {
 
 function formatTimeTh_(date) {
   return Utilities.formatDate(date, TZ, "HH:mm:ss");
+}
+
+function formatDateTimeTh_(date) {
+  return Utilities.formatDate(date, TZ, "dd/MM/yyyy HH:mm:ss");
 }
 
 function formatTimeFile_(date, index) {
@@ -444,18 +624,88 @@ function ensureSheetHeaders_(sheet) {
     return;
   }
 
-  const headers = sheet.getRange(1, 1, 1, SHEET_HEADERS.length).getValues()[0];
-  let needsUpdate = false;
-  for (let i = 0; i < SHEET_HEADERS.length; i++) {
-    if (headers[i] !== SHEET_HEADERS[i]) {
-      needsUpdate = true;
-      break;
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  if (lastCol < SHEET_HEADERS.length) {
+    for (let c = lastCol + 1; c <= SHEET_HEADERS.length; c++) {
+      sheet.getRange(1, c).setValue(SHEET_HEADERS[c - 1]);
     }
   }
-  if (needsUpdate) {
-    sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
-    sheet.setFrozenRows(1);
+
+  sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
+  sheet.setFrozenRows(1);
+  backfillEmptyStatus_(sheet);
+}
+
+function backfillEmptyStatus_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const statusRange = sheet.getRange(2, COL.STATUS, lastRow, COL.STATUS);
+  const statuses = statusRange.getValues();
+  let changed = false;
+
+  for (let i = 0; i < statuses.length; i++) {
+    if (!statuses[i][0]) {
+      statuses[i][0] = DEFAULT_STATUS;
+      changed = true;
+    }
   }
+
+  if (changed) {
+    statusRange.setValues(statuses);
+  }
+}
+
+function buildReportRow_(data) {
+  const ts = data.timestamp || new Date();
+  return [
+    formatDateTh_(ts),
+    formatTimeTh_(ts),
+    data.lineId || "",
+    data.name || "",
+    data.room || "",
+    data.studentNo || "",
+    data.category || "",
+    data.detail || "",
+    data.imageCount || 0,
+    data.imageUrl || "",
+    data.submitId || "",
+    data.debug || "",
+    data.status || DEFAULT_STATUS,
+    data.adminNote || "",
+    data.statusUpdated || formatDateTimeTh_(ts)
+  ];
+}
+
+function getAllReportRows_(sheet) {
+  ensureSheetHeaders_(sheet);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow, SHEET_HEADERS.length).getValues();
+}
+
+function rowToReportObject_(row) {
+  const get = function (col) {
+    const val = row[col - 1];
+    return val === undefined || val === null ? "" : val;
+  };
+
+  return {
+    submitId: String(get(COL.SUBMIT_ID)),
+    date: String(get(COL.DATE)),
+    time: String(get(COL.TIME)),
+    lineId: String(get(COL.LINE_ID)),
+    name: String(get(COL.NAME)),
+    room: String(get(COL.ROOM)),
+    studentNo: String(get(COL.STUDENT_NO)),
+    category: String(get(COL.CATEGORY)),
+    detail: String(get(COL.DETAIL)),
+    imageCount: Number(get(COL.IMAGE_COUNT)) || 0,
+    imageUrl: String(get(COL.IMAGE_URL)),
+    status: String(get(COL.STATUS) || DEFAULT_STATUS),
+    adminNote: String(get(COL.ADMIN_NOTE)),
+    statusUpdated: String(get(COL.STATUS_UPDATED))
+  };
 }
 
 function findRowBySubmitId_(sheet, submitId) {

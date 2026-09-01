@@ -258,6 +258,14 @@
             </div>
             <h3 class="text-xl font-bold text-blue-900">ขอบคุณที่แจ้งปัญหา</h3>
             <p class="text-sm text-gray-500 mt-2">เราได้รับข้อมูลของคุณแล้ว</p>
+            <div id="ticketBox" class="hidden mt-4 bg-blue-50 rounded-xl p-4 text-left">
+                <p class="text-xs text-blue-800 font-semibold mb-1">เลขที่แจ้ง (เก็บไว้ติดตามสถานะ)</p>
+                <p id="ticketIdDisplay" class="font-mono text-sm text-gray-800 break-all"></p>
+                <button type="button" id="copyTicketBtn"
+                    class="mt-3 w-full py-2 rounded-lg border border-blue-800 text-blue-800 text-sm font-medium hover:bg-blue-100 transition-colors">
+                    <i class="fa-regular fa-copy mr-1"></i> คัดลอกเลขที่แจ้ง
+                </button>
+            </div>
             <button type="button" id="newReportBtn" class="hidden mt-6 w-full py-2.5 rounded-xl border border-blue-800 text-blue-800 font-medium hover:bg-blue-50 transition-colors">
                 แจ้งเรื่องใหม่
             </button>
@@ -389,16 +397,32 @@
             document.getElementById("loadingSubtitle").textContent = subtitle;
         }
 
-        function showSuccess() {
+        function showSuccess(submitId) {
             document.getElementById("loadingOverlay").classList.add("hidden");
             document.getElementById("successOverlay").classList.remove("hidden");
 
+            if (submitId) {
+                document.getElementById("ticketBox").classList.remove("hidden");
+                document.getElementById("ticketIdDisplay").textContent = submitId;
+            }
+
             if (typeof liff !== "undefined" && liff.isInClient()) {
-                setTimeout(function () { liff.closeWindow(); }, 2000);
+                setTimeout(function () { liff.closeWindow(); }, 5000);
             } else {
                 document.getElementById("newReportBtn").classList.remove("hidden");
             }
         }
+
+        document.getElementById("copyTicketBtn").addEventListener("click", function () {
+            const text = document.getElementById("ticketIdDisplay").textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    alert("คัดลอกเลขที่แจ้งแล้ว");
+                });
+            } else {
+                alert("เลขที่แจ้ง: " + text);
+            }
+        });
 
         function resetForm() {
             document.getElementById("reportForm").reset();
@@ -409,6 +433,8 @@
             document.getElementById("submitBtn").disabled = false;
             document.getElementById("successOverlay").classList.add("hidden");
             document.getElementById("newReportBtn").classList.add("hidden");
+            document.getElementById("ticketBox").classList.add("hidden");
+            document.getElementById("ticketIdDisplay").textContent = "";
         }
 
         function clearCategorySelection() {
@@ -555,7 +581,7 @@
                     });
                 }
 
-                showSuccess();
+                showSuccess(submitId);
 
             } catch (error) {
                 loadingOverlay.classList.add("hidden");
