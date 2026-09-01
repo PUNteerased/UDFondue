@@ -13,7 +13,7 @@ const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
 const LINE_ACCESS_TOKEN = "1zQJQDz1un38gxqKc4Y91joSXB6oItmlQY9yG8EduB65R73XcMkHDkJ5pwBEkykFwWWgaRn4nv2sZer6yQglHR6UuJ/LE7Mqe1LsvhmUfKK/ABHu50jIpz6t8FxDuXcwNUo9q+RmWoXoqKUB9yZSIgdB04t89/1O/w1cDnyilFU=";
 const LINE_THANK_YOU_MESSAGE = "ปัญหาของคุณได้รับรู้แล้วแต่ไม่รับเรื่อง\nทางเราจะประสานอินให้นะครับ";
-const ADMIN_PASSWORD = "YOUR_ADMIN_PASSWORD";
+const ADMIN_PASSWORD = "UDFondueWoWoWo";
 const ADMIN_TOKEN_TTL_SEC = 28800;
 const DEFAULT_STATUS = "รับเรื่องแล้ว";
 const TZ = "GMT+7";
