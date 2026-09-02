@@ -666,7 +666,7 @@ function uploadImage_(base64Image, timestamp, index) {
     // ข้ามได้
   }
 
-  return file.getUrl();
+  return "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w1200";
 }
 
 function ensureSheetHeaders_(sheet, forWrite) {
