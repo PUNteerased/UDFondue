@@ -16,7 +16,7 @@
 | --- | --- |
 | `index.html` | ฟอร์มแจ้งเรื่อง (LIFF) |
 | `track.html` | ติดตามสถานะเรื่อง (LIFF) |
-| `admin.html` | หน้า Admin สำหรับเจ้าหน้าที่ |
+| `nimda.html` | หน้า Admin สำหรับเจ้าหน้าที่ (URL ซ่อน) |
 | `Code.gs` | Backend Google Apps Script |
 | `README.md` | คู่มือนี้ |
 
@@ -43,11 +43,11 @@
 
 > **สำคัญ:** หลังแก้ `Code.gs` ทุกครั้ง ต้อง Deploy → Manage deployments → **New version**
 
-ทดสอบ: เปิด Web app URL ควรเห็น `"version":"v5-tracking"`
+ทดสอบ: เปิด Web app URL ควรเห็น `"version":"v6-perf"`
 
 ### 3) Host หน้าเว็บ
 
-อัปโหลด `index.html`, `track.html`, `admin.html` ขึ้น GitHub Pages / Netlify / Vercel
+อัปโหลด `index.html`, `track.html`, `nimda.html` ขึ้น GitHub Pages / Netlify / Vercel
 
 แก้ `GAS_WEB_APP_URL` ในทุกไฟล์ให้ตรงกับ Web app URL:
 
@@ -99,7 +99,7 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/.../exec";
 3. **ค้นหาเลขที่แจ้ง** — กรอก Submit ID เพื่อค้นหา
 
 ### เจ้าหน้าที่ — Admin
-1. เปิด `admin.html` (เก็บ URL ไว้เฉพาะเจ้าหน้าที่)
+1. เปิด `nimda.html` (เก็บ URL ไว้เฉพาะเจ้าหน้าที่)
 2. Login ด้วยรหัส `ADMIN_PASSWORD`
 3. Filter / ค้นหาเรื่อง → กดเรื่อง → อัปเดตสถานะ + หมายเหตุ
 
@@ -139,6 +139,7 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/.../exec";
 | `trackList` | ดึงรายการตาม lineId |
 | `trackDetail` | ดึงรายละเอียด (ตรวจสิทธิ์ lineId) |
 | `adminAuth` | Login Admin |
+| `adminBootstrap` | Login + โหลดรายการครั้งเดียว (หรือ refresh ด้วย token) |
 | `adminList` | รายการทั้งหมด + filter |
 | `adminUpdate` | อัปเดตสถานะ |
 
@@ -149,4 +150,4 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/.../exec";
 - แก้ `Code.gs` แล้วต้อง **Deploy New version** ทุกครั้ง
 - รูปภาพเก็บใน Drive แบบ `ปี/เดือน/วัน/`
 - Admin token หมดอายุ 8 ชั่วโมง — login ใหม่ได้
-- อย่าเผยแพร่ URL `admin.html` และ `ADMIN_PASSWORD` สาธารณะ
+- อย่าเผยแพร่ URL `nimda.html` และ `ADMIN_PASSWORD` สาธารณะ

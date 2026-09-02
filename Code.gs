@@ -6,7 +6,8 @@
  * การ Save อย่างเดียวไม่ทำให้ Web App URL ใช้โค้ดใหม่
  */
 
-const API_VERSION = "v5-tracking";
+const API_VERSION = "v6-perf";
+const SHEET_HEADERS_CACHE_KEY = "sheet_headers_v6";
 const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
@@ -67,7 +68,6 @@ function doPost(e) {
   const payloadSize = getPayloadSize_(e);
 
   try {
-    ensureLogSheet_();
     const data = parsePayload_(e);
     const action = data.action || "legacy";
 
@@ -85,6 +85,9 @@ function doPost(e) {
     }
     if (action === "adminAuth") {
       return handleAdminAuth_(data);
+    }
+    if (action === "adminBootstrap") {
+      return handleAdminBootstrap_(data);
     }
     if (action === "adminList") {
       return handleAdminList_(data);
@@ -132,7 +135,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
   const imageUrl = imageCount > 0 ? "กำลังอัปโหลด..." : "";
 
   const sheet = getSheet_();
-  ensureSheetHeaders_(sheet);
+  ensureSheetHeaders_(sheet, true);
   sheet.appendRow(buildReportRow_({
     timestamp: timestamp,
     lineId: lineId,
@@ -180,15 +183,16 @@ function handleUploadImage_(data, timestamp, payloadSize) {
     const sheet = getSheet_();
     const row = findRowBySubmitId_(sheet, submitId);
     if (row > 0) {
-      const current = sheet.getRange(row, COL.IMAGE_URL).getValue();
+      const rowData = sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0];
+      const current = rowData[COL.IMAGE_URL - 1];
       let newVal = url;
       if (current && current !== "กำลังอัปโหลด...") {
         newVal = current + "\n" + url;
       }
       sheet.getRange(row, COL.IMAGE_URL).setValue(newVal);
 
-      const imageCount = Number(sheet.getRange(row, COL.IMAGE_COUNT).getValue()) || 0;
-      const lineId = sheet.getRange(row, COL.LINE_ID).getValue();
+      const imageCount = Number(rowData[COL.IMAGE_COUNT - 1]) || 0;
+      const lineId = rowData[COL.LINE_ID - 1];
       if (imageIndex >= imageCount && imageCount > 0) {
         sendLineThankYou_(lineId, submitId);
       }
@@ -259,7 +263,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
   }
 
   const sheet = getSheet_();
-  ensureSheetHeaders_(sheet);
+  ensureSheetHeaders_(sheet, true);
   sheet.appendRow(buildReportRow_({
     timestamp: timestamp,
     lineId: lineId,
@@ -334,17 +338,33 @@ function handleTrackDetail_(data) {
 // ---------- Admin ----------
 
 function handleAdminAuth_(data) {
-  const password = data.password || "";
-  if (!ADMIN_PASSWORD || ADMIN_PASSWORD === "YOUR_ADMIN_PASSWORD") {
-    return jsonResponse_({ status: "error", message: "ยังไม่ได้ตั้งรหัส Admin ใน Code.gs" });
+  const auth = authenticateAdminPassword_(data.password || "");
+  if (!auth.ok) {
+    return jsonResponse_({ status: "error", message: auth.message });
   }
-  if (password !== ADMIN_PASSWORD) {
-    return jsonResponse_({ status: "error", message: "รหัสผ่านไม่ถูกต้อง" });
+  return jsonResponse_({ status: "success", adminToken: auth.token });
+}
+
+function handleAdminBootstrap_(data) {
+  let adminToken = data.adminToken || "";
+
+  if (data.password) {
+    const auth = authenticateAdminPassword_(data.password);
+    if (!auth.ok) {
+      return jsonResponse_({ status: "error", message: auth.message });
+    }
+    adminToken = auth.token;
+  } else if (!verifyAdminToken_(adminToken)) {
+    return jsonResponse_({ status: "error", message: "กรุณาเข้าสู่ระบบใหม่" });
   }
 
-  const token = Utilities.getUuid();
-  CacheService.getScriptCache().put("admin_" + token, "1", ADMIN_TOKEN_TTL_SEC);
-  return jsonResponse_({ status: "success", adminToken: token });
+  const reports = getAdminReports_(data.filterStatus || "", data.search || "");
+  return jsonResponse_({
+    status: "success",
+    adminToken: adminToken,
+    reports: reports,
+    statusOptions: STATUS_OPTIONS
+  });
 }
 
 function handleAdminList_(data) {
@@ -352,8 +372,28 @@ function handleAdminList_(data) {
     return jsonResponse_({ status: "error", message: "กรุณาเข้าสู่ระบบใหม่" });
   }
 
-  const filterStatus = data.filterStatus || "";
-  const search = (data.search || "").toLowerCase().trim();
+  const reports = getAdminReports_(data.filterStatus || "", data.search || "");
+  return jsonResponse_({
+    status: "success",
+    reports: reports,
+    statusOptions: STATUS_OPTIONS
+  });
+}
+
+function authenticateAdminPassword_(password) {
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD === "YOUR_ADMIN_PASSWORD") {
+    return { ok: false, message: "ยังไม่ได้ตั้งรหัส Admin ใน Code.gs" };
+  }
+  if (password !== ADMIN_PASSWORD) {
+    return { ok: false, message: "รหัสผ่านไม่ถูกต้อง" };
+  }
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put("admin_" + token, "1", ADMIN_TOKEN_TTL_SEC);
+  return { ok: true, token: token };
+}
+
+function getAdminReports_(filterStatus, search) {
+  const searchLower = String(search || "").toLowerCase().trim();
   const sheet = getSheet_();
   const rows = getAllReportRows_(sheet);
   const reports = [];
@@ -361,7 +401,7 @@ function handleAdminList_(data) {
   for (let i = 0; i < rows.length; i++) {
     const report = rowToReportObject_(rows[i]);
     if (filterStatus && report.status !== filterStatus) continue;
-    if (search) {
+    if (searchLower) {
       const haystack = [
         report.name,
         report.room,
@@ -370,7 +410,7 @@ function handleAdminList_(data) {
         report.submitId,
         report.detail
       ].join(" ").toLowerCase();
-      if (haystack.indexOf(search) === -1) continue;
+      if (haystack.indexOf(searchLower) === -1) continue;
     }
     reports.push(report);
   }
@@ -379,11 +419,7 @@ function handleAdminList_(data) {
     return String(b.submitId).localeCompare(String(a.submitId));
   });
 
-  return jsonResponse_({
-    status: "success",
-    reports: reports,
-    statusOptions: STATUS_OPTIONS
-  });
+  return reports;
 }
 
 function handleAdminUpdate_(data, timestamp) {
@@ -409,9 +445,7 @@ function handleAdminUpdate_(data, timestamp) {
   }
 
   const updatedAt = formatDateTimeTh_(timestamp);
-  sheet.getRange(row, COL.STATUS).setValue(status);
-  sheet.getRange(row, COL.ADMIN_NOTE).setValue(adminNote);
-  sheet.getRange(row, COL.STATUS_UPDATED).setValue(updatedAt);
+  sheet.getRange(row, COL.STATUS, row, COL.STATUS_UPDATED).setValues([[status, adminNote, updatedAt]]);
 
   const report = rowToReportObject_(sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0]);
   return jsonResponse_({ status: "success", message: "อัปเดตสถานะเรียบร้อย", report: report });
@@ -462,7 +496,7 @@ function testWriteSheet() {
 
   try {
     const sheet = getSheet_();
-    ensureSheetHeaders_(sheet);
+    ensureSheetHeaders_(sheet, true);
     sheet.appendRow(buildReportRow_({
       timestamp: timestamp,
       lineId: "TEST-LINE-ID",
@@ -617,10 +651,18 @@ function uploadImage_(base64Image, timestamp, index) {
   return file.getUrl();
 }
 
-function ensureSheetHeaders_(sheet) {
+function ensureSheetHeaders_(sheet, forWrite) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(SHEET_HEADERS_CACHE_KEY) === "1";
+
+  if (cached && !forWrite) {
+    return;
+  }
+
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(SHEET_HEADERS);
     sheet.setFrozenRows(1);
+    cache.put(SHEET_HEADERS_CACHE_KEY, "1", 21600);
     return;
   }
 
@@ -631,9 +673,14 @@ function ensureSheetHeaders_(sheet) {
     }
   }
 
-  sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
-  sheet.setFrozenRows(1);
-  backfillEmptyStatus_(sheet);
+  if (!cached) {
+    sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
+    sheet.setFrozenRows(1);
+    if (forWrite) {
+      backfillEmptyStatus_(sheet);
+    }
+    cache.put(SHEET_HEADERS_CACHE_KEY, "1", 21600);
+  }
 }
 
 function backfillEmptyStatus_(sheet) {
@@ -678,7 +725,7 @@ function buildReportRow_(data) {
 }
 
 function getAllReportRows_(sheet) {
-  ensureSheetHeaders_(sheet);
+  ensureSheetHeaders_(sheet, false);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   return sheet.getRange(2, 1, lastRow, SHEET_HEADERS.length).getValues();
@@ -727,7 +774,7 @@ function writeDebugLog_(submitId, message) {
   if (!submitId || !message) return;
   try {
     const sheet = getSheet_();
-    ensureSheetHeaders_(sheet);
+    ensureSheetHeaders_(sheet, true);
     const row = findRowBySubmitId_(sheet, submitId);
     if (row > 0) {
       const current = sheet.getRange(row, COL.DEBUG).getValue();

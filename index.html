@@ -275,8 +275,6 @@
     <script>
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx7enhoj1gHCAzzVIq-gm4_3PkFbRk3o3Ex8-rfQ4eClGpsrg44RAN0vnpg4JEIYSY/exec";
         const LIFF_ID = "2010319415-epnUUdNV";
-        const GAS_POST_DELAY_MS = 3000;
-
         const MAX_IMAGES = 5;
         const MAX_FILE_SIZE = 10 * 1024 * 1024;
         const MAX_DIMENSION = 1600;
@@ -381,15 +379,16 @@
         }
 
         async function postToGas(payload) {
-            await fetch(GAS_WEB_APP_URL, {
+            const response = await fetch(GAS_WEB_APP_URL, {
                 method: "POST",
-                mode: "no-cors",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify(payload)
             });
-            await new Promise(function (resolve) {
-                setTimeout(resolve, payload.action === "uploadImage" ? GAS_POST_DELAY_MS : 1500);
-            });
+            const result = await response.json();
+            if (result.status !== "success") {
+                throw new Error(result.message || "ส่งข้อมูลไม่สำเร็จ");
+            }
+            return result;
         }
 
         function setLoadingMessage(title, subtitle) {
