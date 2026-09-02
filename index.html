@@ -550,7 +550,7 @@
             submitBtn.disabled = true;
 
             const lineUserId = document.getElementById("lineUserId").value;
-            const submitId = Date.now() + "-" + lineUserId;
+            const submitId = "UDF-" + Date.now().toString().slice(-7);
 
             try {
                 setLoadingMessage("กำลังบันทึกข้อมูล...", "กรุณาอย่าปิดหน้านี้");

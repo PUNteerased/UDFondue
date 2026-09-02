@@ -117,6 +117,12 @@
             return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
+        function formatSubmitIdDisplay(id) {
+            const s = String(id || "");
+            if (s.indexOf("-U") !== -1) return s.split("-")[0];
+            return s;
+        }
+
         function showLogin() {
             document.getElementById("loginScreen").classList.remove("hidden");
             document.getElementById("adminScreen").classList.add("hidden");
@@ -159,7 +165,7 @@
                 '</div>' +
                 '<p class="text-sm text-gray-600">' + escapeHtml(report.name) + ' · ห้อง ' + escapeHtml(report.room) + ' เลขที่ ' + escapeHtml(report.studentNo) + '</p>' +
                 '<p class="text-xs text-gray-400 mt-1">' + escapeHtml(report.date) + ' ' + escapeHtml(report.time) + '</p>' +
-                '<p class="text-xs font-mono text-blue-700 mt-1 truncate">' + escapeHtml(report.submitId) + '</p>';
+                '<p class="text-xs font-mono text-blue-700 mt-1 truncate">' + escapeHtml(formatSubmitIdDisplay(report.submitId)) + '</p>';
             card.addEventListener("click", function () { openEdit(report); });
             return card;
         }
@@ -250,7 +256,7 @@
             document.getElementById("editSummary").innerHTML =
                 '<strong>' + escapeHtml(report.category) + '</strong><br>' +
                 escapeHtml(report.name) + ' · ห้อง ' + escapeHtml(report.room) + '<br>' +
-                '<span class="font-mono text-xs">' + escapeHtml(report.submitId) + '</span>';
+                '<span class="font-mono text-xs">' + escapeHtml(formatSubmitIdDisplay(report.submitId)) + '</span>';
             document.getElementById("editStatus").value = report.status;
             document.getElementById("editNote").value = report.adminNote || "";
             document.getElementById("editModal").classList.remove("hidden");

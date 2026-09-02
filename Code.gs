@@ -152,6 +152,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
     adminNote: "",
     statusUpdated: formatDateTimeTh_(timestamp)
   }));
+  fixTextColumnsAfterAppend_(sheet, sheet.getLastRow(), room, studentNo);
 
   writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
 
@@ -280,6 +281,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
     adminNote: "",
     statusUpdated: formatDateTimeTh_(timestamp)
   }));
+  fixTextColumnsAfterAppend_(sheet, sheet.getLastRow(), room, studentNo);
 
   writeLog_(timestamp, payloadSize, "legacy", images.length, urls.length, urls.length, uploadErrors.join(" | "), "success", "");
 
@@ -549,6 +551,22 @@ function formatDateTimeTh_(date) {
   return Utilities.formatDate(date, TZ, "dd/MM/yyyy HH:mm:ss");
 }
 
+function formatSheetCell_(val, kind) {
+  if (val instanceof Date) {
+    if (kind === "date") return Utilities.formatDate(val, TZ, "dd/MM/yyyy");
+    if (kind === "time") return Utilities.formatDate(val, TZ, "HH:mm:ss");
+    if (kind === "room") return Utilities.formatDate(val, TZ, "d/M");
+    return Utilities.formatDate(val, TZ, "dd/MM/yyyy HH:mm:ss");
+  }
+  return val === undefined || val === null ? "" : String(val);
+}
+
+function fixTextColumnsAfterAppend_(sheet, row, room, studentNo) {
+  const textRange = sheet.getRange(row, COL.ROOM, row, COL.STUDENT_NO);
+  textRange.setNumberFormat("@");
+  textRange.setValues([[room, studentNo]]);
+}
+
 function formatTimeFile_(date, index) {
   const base = Utilities.formatDate(date, TZ, "HH.mm.ss");
   if (index > 1) {
@@ -738,20 +756,20 @@ function rowToReportObject_(row) {
   };
 
   return {
-    submitId: String(get(COL.SUBMIT_ID)),
-    date: String(get(COL.DATE)),
-    time: String(get(COL.TIME)),
-    lineId: String(get(COL.LINE_ID)),
-    name: String(get(COL.NAME)),
-    room: String(get(COL.ROOM)),
-    studentNo: String(get(COL.STUDENT_NO)),
-    category: String(get(COL.CATEGORY)),
-    detail: String(get(COL.DETAIL)),
+    submitId: formatSheetCell_(get(COL.SUBMIT_ID), "text"),
+    date: formatSheetCell_(get(COL.DATE), "date"),
+    time: formatSheetCell_(get(COL.TIME), "time"),
+    lineId: formatSheetCell_(get(COL.LINE_ID), "text"),
+    name: formatSheetCell_(get(COL.NAME), "text"),
+    room: formatSheetCell_(get(COL.ROOM), "room"),
+    studentNo: formatSheetCell_(get(COL.STUDENT_NO), "text"),
+    category: formatSheetCell_(get(COL.CATEGORY), "text"),
+    detail: formatSheetCell_(get(COL.DETAIL), "text"),
     imageCount: Number(get(COL.IMAGE_COUNT)) || 0,
-    imageUrl: String(get(COL.IMAGE_URL)),
-    status: String(get(COL.STATUS) || DEFAULT_STATUS),
-    adminNote: String(get(COL.ADMIN_NOTE)),
-    statusUpdated: String(get(COL.STATUS_UPDATED))
+    imageUrl: formatSheetCell_(get(COL.IMAGE_URL), "text"),
+    status: formatSheetCell_(get(COL.STATUS) || DEFAULT_STATUS, "text"),
+    adminNote: formatSheetCell_(get(COL.ADMIN_NOTE), "text"),
+    statusUpdated: formatSheetCell_(get(COL.STATUS_UPDATED), "datetime")
   };
 }
 

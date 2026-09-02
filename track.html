@@ -115,6 +115,12 @@
                 .replace(/"/g, "&quot;");
         }
 
+        function formatSubmitIdDisplay(id) {
+            const s = String(id || "");
+            if (s.indexOf("-U") !== -1) return s.split("-")[0];
+            return s;
+        }
+
         function renderReportCard(report) {
             const card = document.createElement("button");
             card.type = "button";
@@ -126,7 +132,7 @@
                 '</div>' +
                 '<p class="text-xs text-gray-400">' + escapeHtml(report.date) + ' ' + escapeHtml(report.time) + '</p>' +
                 '<p class="text-xs text-gray-500 mt-1">ห้อง ' + escapeHtml(report.room) + ' เลขที่ ' + escapeHtml(report.studentNo) + '</p>' +
-                '<p class="text-xs text-blue-700 mt-2 font-mono truncate">' + escapeHtml(report.submitId) + '</p>';
+                '<p class="text-xs text-blue-700 mt-2 font-mono truncate">' + escapeHtml(formatSubmitIdDisplay(report.submitId)) + '</p>';
             card.addEventListener("click", function () { showDetail(report); });
             return card;
         }
@@ -151,7 +157,7 @@
                 statusBadge(report.status) +
                 '<span class="text-xs text-gray-400">' + escapeHtml(report.statusUpdated) + '</span>' +
                 '</div>' +
-                '<div><p class="text-xs text-gray-400">เลขที่แจ้ง</p><p class="font-mono text-sm text-blue-800 break-all">' + escapeHtml(report.submitId) + '</p></div>' +
+                '<div><p class="text-xs text-gray-400">เลขที่แจ้ง</p><p class="font-mono text-sm text-blue-800 break-all">' + escapeHtml(formatSubmitIdDisplay(report.submitId)) + '</p></div>' +
                 '<div><p class="text-xs text-gray-400">ประเภทเรื่อง</p><p class="font-semibold text-gray-800">' + escapeHtml(report.category) + '</p></div>' +
                 '<div><p class="text-xs text-gray-400">ผู้แจ้ง / ห้อง / เลขที่</p><p class="text-sm text-gray-700">' + escapeHtml(report.name) + ' · ห้อง ' + escapeHtml(report.room) + ' เลขที่ ' + escapeHtml(report.studentNo) + '</p></div>' +
                 '<div><p class="text-xs text-gray-400">รายละเอียด</p><p class="text-sm text-gray-700 whitespace-pre-wrap">' + escapeHtml(report.detail) + '</p></div>' +
