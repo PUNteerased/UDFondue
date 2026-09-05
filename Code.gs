@@ -184,7 +184,7 @@ function handleUploadImage_(data, timestamp, payloadSize) {
     const sheet = getSheet_();
     const row = findRowBySubmitId_(sheet, submitId);
     if (row > 0) {
-      const rowData = sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0];
+      const rowData = getSingleRowRange_(sheet, row, 1, SHEET_HEADERS.length).getValues()[0];
       const current = rowData[COL.IMAGE_URL - 1];
       let newVal = url;
       if (current && current !== "กำลังอัปโหลด...") {
@@ -329,7 +329,7 @@ function handleTrackDetail_(data) {
     return jsonResponse_({ status: "error", message: "ไม่พบเลขที่แจ้งนี้" });
   }
 
-  const report = rowToReportObject_(sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0]);
+  const report = rowToReportObject_(getSingleRowRange_(sheet, row, 1, SHEET_HEADERS.length).getValues()[0]);
   if (String(report.lineId) !== String(lineId)) {
     return jsonResponse_({ status: "error", message: "ไม่มีสิทธิ์ดูเรื่องนี้" });
   }
@@ -447,9 +447,9 @@ function handleAdminUpdate_(data, timestamp) {
   }
 
   const updatedAt = formatDateTimeTh_(timestamp);
-  sheet.getRange(row, COL.STATUS, row, COL.STATUS_UPDATED).setValues([[status, adminNote, updatedAt]]);
+  getSingleRowRange_(sheet, row, COL.STATUS, COL.STATUS_UPDATED).setValues([[status, adminNote, updatedAt]]);
 
-  const report = rowToReportObject_(sheet.getRange(row, 1, row, SHEET_HEADERS.length).getValues()[0]);
+  const report = rowToReportObject_(getSingleRowRange_(sheet, row, 1, SHEET_HEADERS.length).getValues()[0]);
   return jsonResponse_({ status: "success", message: "อัปเดตสถานะเรียบร้อย", report: report });
 }
 
@@ -562,9 +562,17 @@ function formatSheetCell_(val, kind) {
 }
 
 function fixTextColumnsAfterAppend_(sheet, row, room, studentNo) {
-  const textRange = sheet.getRange(row, COL.ROOM, row, COL.STUDENT_NO);
+  const textRange = getSingleRowRange_(sheet, row, COL.ROOM, COL.STUDENT_NO);
   textRange.setNumberFormat("@");
   textRange.setValues([[room, studentNo]]);
+}
+
+function getSingleRowRange_(sheet, row, startCol, endCol) {
+  return sheet.getRange(row, startCol, 1, endCol - startCol + 1);
+}
+
+function getRectRange_(sheet, startRow, startCol, endRow, endCol) {
+  return sheet.getRange(startRow, startCol, endRow - startRow + 1, endCol - startCol + 1);
 }
 
 function formatTimeFile_(date, index) {
@@ -705,7 +713,7 @@ function backfillEmptyStatus_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
-  const statusRange = sheet.getRange(2, COL.STATUS, lastRow, COL.STATUS);
+  const statusRange = getRectRange_(sheet, 2, COL.STATUS, lastRow, COL.STATUS);
   const statuses = statusRange.getValues();
   let changed = false;
 
@@ -746,7 +754,7 @@ function getAllReportRows_(sheet) {
   ensureSheetHeaders_(sheet, false);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  return sheet.getRange(2, 1, lastRow, SHEET_HEADERS.length).getValues();
+  return getRectRange_(sheet, 2, 1, lastRow, SHEET_HEADERS.length).getValues();
 }
 
 function rowToReportObject_(row) {
@@ -779,7 +787,7 @@ function findRowBySubmitId_(sheet, submitId) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
 
-  const ids = sheet.getRange(2, COL.SUBMIT_ID, lastRow, COL.SUBMIT_ID).getValues();
+  const ids = getRectRange_(sheet, 2, COL.SUBMIT_ID, lastRow, COL.SUBMIT_ID).getValues();
   for (let i = ids.length - 1; i >= 0; i--) {
     if (String(ids[i][0]) === String(submitId)) {
       return i + 2;
