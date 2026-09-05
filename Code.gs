@@ -480,14 +480,29 @@ function sendLineThankYou_(userId, submitId) {
     muteHttpExceptions: true
   };
 
-  const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", options);
-  const code = response.getResponseCode();
+  try {
+    const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", options);
+    const code = response.getResponseCode();
 
-  if (code !== 200) {
-    const errText = response.getContentText();
-    Logger.log("LINE Push failed (" + code + "): " + errText);
-    writeDebugLog_(submitId, "LINE push: " + errText);
+    if (code !== 200) {
+      const errText = response.getContentText();
+      Logger.log("LINE Push failed (" + code + "): " + errText);
+      writeDebugLog_(submitId, "LINE push: " + errText);
+    }
+  } catch (err) {
+    Logger.log("LINE Push error: " + err.toString());
+    writeDebugLog_(submitId, "LINE push: " + err.toString());
   }
+}
+
+/** รันครั้งเดียวจาก Apps Script Editor เพื่อขอสิทธิ์ UrlFetchApp แล้ว Deploy New version */
+function authorizeLinePush_() {
+  const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/info", {
+    method: "get",
+    headers: { Authorization: "Bearer " + LINE_ACCESS_TOKEN },
+    muteHttpExceptions: true
+  });
+  return "LINE auth OK (HTTP " + response.getResponseCode() + "). Deploy New version แล้วลองส่งฟอร์มอีกครั้ง";
 }
 
 // ---------- Diagnostics (Run จาก editor) ----------
