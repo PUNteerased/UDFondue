@@ -200,6 +200,31 @@
             return s;
         }
 
+        function parseReportSortTime(report) {
+            if (report.sortTime) return report.sortTime;
+            const d = String(report.date || "").trim();
+            const t = String(report.time || "00:00:00").trim();
+            const dm = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            const tm = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (!dm) return 0;
+            return new Date(
+                parseInt(dm[3], 10),
+                parseInt(dm[2], 10) - 1,
+                parseInt(dm[1], 10),
+                tm ? parseInt(tm[1], 10) : 0,
+                tm ? parseInt(tm[2], 10) : 0,
+                tm && tm[3] ? parseInt(tm[3], 10) : 0
+            ).getTime();
+        }
+
+        function sortReportsNewestFirst(reports) {
+            return (reports || []).slice().sort(function (a, b) {
+                const diff = parseReportSortTime(b) - parseReportSortTime(a);
+                if (diff !== 0) return diff;
+                return (b.sheetRow || 0) - (a.sheetRow || 0);
+            });
+        }
+
         function statusBadge(status) {
             const cls = STATUS_COLORS[status] || "bg-gray-100 text-gray-700";
             return '<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ' + cls + '">' + escapeHtml(status) + '</span>';
@@ -456,7 +481,7 @@
                 return;
             }
 
-            result.reports.forEach(function (r) { listEl.appendChild(renderCard(r)); });
+            sortReportsNewestFirst(result.reports).forEach(function (r) { listEl.appendChild(renderCard(r)); });
         }
 
         async function login() {

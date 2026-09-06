@@ -307,7 +307,7 @@ function handleTrackList_(data) {
   const reports = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const report = rowToReportObject_(rows[i]);
+    const report = rowToReportObject_(rows[i], i + 2);
     if (String(report.lineId) === String(lineId)) {
       reports.push(report);
     }
@@ -403,7 +403,7 @@ function getAdminReports_(filterStatus, search) {
   const reports = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const report = rowToReportObject_(rows[i]);
+    const report = rowToReportObject_(rows[i], i + 2);
     if (filterStatus && report.status !== filterStatus) continue;
     if (searchLower) {
       const haystack = [
@@ -1053,7 +1053,7 @@ function getAllReportRows_(sheet) {
   return getRectRange_(sheet, 2, 1, lastRow, SHEET_HEADERS.length).getValues();
 }
 
-function rowToReportObject_(row) {
+function rowToReportObject_(row, sheetRow) {
   const get = function (col) {
     const val = row[col - 1];
     return val === undefined || val === null ? "" : val;
@@ -1073,13 +1073,58 @@ function rowToReportObject_(row) {
     imageUrl: formatSheetCell_(get(COL.IMAGE_URL), "text"),
     status: formatSheetCell_(get(COL.STATUS) || DEFAULT_STATUS, "text"),
     adminNote: formatSheetCell_(get(COL.ADMIN_NOTE), "text"),
-    statusUpdated: formatSheetCell_(get(COL.STATUS_UPDATED), "datetime")
+    statusUpdated: formatSheetCell_(get(COL.STATUS_UPDATED), "datetime"),
+    sheetRow: sheetRow || 0,
+    sortTime: getRowSortTime_(row)
   };
 }
 
+function getRowSortTime_(row) {
+  const dateVal = row[COL.DATE - 1];
+  const timeVal = row[COL.TIME - 1];
+
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    const d = new Date(dateVal.getTime());
+    if (timeVal instanceof Date && !isNaN(timeVal.getTime())) {
+      d.setHours(timeVal.getHours(), timeVal.getMinutes(), timeVal.getSeconds(), 0);
+    } else if (typeof timeVal === "number") {
+      if (timeVal > 0 && timeVal < 1) {
+        const totalSec = Math.round(timeVal * 86400);
+        d.setHours(0, 0, 0, 0);
+        d.setSeconds(totalSec);
+      } else if (timeVal >= 1) {
+        return timeVal;
+      }
+    } else {
+      const t = formatSheetCell_(timeVal, "time");
+      const tm = String(t).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (tm) {
+        d.setHours(parseInt(tm[1], 10), parseInt(tm[2], 10), tm[3] ? parseInt(tm[3], 10) : 0, 0);
+      }
+    }
+    return d.getTime();
+  }
+
+  const fromStrings = parseThaiDateTimeParts_(
+    formatSheetCell_(dateVal, "date"),
+    formatSheetCell_(timeVal, "time")
+  );
+  if (fromStrings) return fromStrings;
+
+  const su = formatSheetCell_(row[COL.STATUS_UPDATED - 1], "datetime");
+  const suParts = String(su).trim().match(/^(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)$/);
+  if (suParts) {
+    const parsed = parseThaiDateTimeParts_(suParts[1], suParts[2]);
+    if (parsed) return parsed;
+  }
+
+  return 0;
+}
+
 function parseThaiDateTimeParts_(dateStr, timeStr) {
-  const d = String(dateStr || "").trim();
+  const d = dateStr ? String(dateStr).trim() : "";
   const t = String(timeStr || "00:00:00").trim();
+  if (!d) return null;
   const dm = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   const tm = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (!dm) return null;
@@ -1094,6 +1139,8 @@ function parseThaiDateTimeParts_(dateStr, timeStr) {
 }
 
 function getReportSortTime_(report) {
+  if (report && report.sortTime) return report.sortTime;
+
   const fromDateTime = parseThaiDateTimeParts_(report.date, report.time);
   if (fromDateTime) return fromDateTime;
 
@@ -1112,7 +1159,9 @@ function getReportSortTime_(report) {
 }
 
 function compareReportsNewestFirst_(a, b) {
-  return getReportSortTime_(b) - getReportSortTime_(a);
+  const diff = getReportSortTime_(b) - getReportSortTime_(a);
+  if (diff !== 0) return diff;
+  return (b.sheetRow || 0) - (a.sheetRow || 0);
 }
 
 function findRowBySubmitId_(sheet, submitId) {
