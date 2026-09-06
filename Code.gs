@@ -6,8 +6,10 @@
  * การ Save อย่างเดียวไม่ทำให้ Web App URL ใช้โค้ดใหม่
  */
 
-const API_VERSION = "v7-submit-notify";
-const SHEET_HEADERS_CACHE_KEY = "sheet_headers_v6";
+const API_VERSION = "v8-sheet-columns";
+const SHEET_HEADERS_CACHE_KEY = "sheet_headers_v8";
+const SHEET_REPAIR_CACHE_KEY = "sheet_repair_v8";
+const LOG_COLUMNS = 9;
 const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
@@ -137,7 +139,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
 
   const sheet = getSheet_();
   ensureSheetHeaders_(sheet, true);
-  sheet.appendRow(buildReportRow_({
+  const newRow = appendReportRow_(sheet, {
     timestamp: timestamp,
     lineId: lineId,
     name: name,
@@ -152,8 +154,8 @@ function handleSubmit_(data, timestamp, payloadSize) {
     status: DEFAULT_STATUS,
     adminNote: "",
     statusUpdated: formatDateTimeTh_(timestamp)
-  }));
-  fixTextColumnsAfterAppend_(sheet, sheet.getLastRow(), room, studentNo);
+  });
+  fixTextColumnsAfterAppend_(sheet, newRow, room, studentNo);
 
   writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
 
@@ -267,7 +269,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
 
   const sheet = getSheet_();
   ensureSheetHeaders_(sheet, true);
-  sheet.appendRow(buildReportRow_({
+  const newRow = appendReportRow_(sheet, {
     timestamp: timestamp,
     lineId: lineId,
     name: name,
@@ -282,8 +284,8 @@ function handleLegacy_(data, timestamp, payloadSize) {
     status: DEFAULT_STATUS,
     adminNote: "",
     statusUpdated: formatDateTimeTh_(timestamp)
-  }));
-  fixTextColumnsAfterAppend_(sheet, sheet.getLastRow(), room, studentNo);
+  });
+  fixTextColumnsAfterAppend_(sheet, newRow, room, studentNo);
 
   writeLog_(timestamp, payloadSize, "legacy", images.length, urls.length, urls.length, uploadErrors.join(" | "), "success", "");
 
@@ -523,22 +525,101 @@ function sendLineThankYou_(userId, submitId, category, status) {
       writeDebugLog_(submitId, "LINE push: " + errText);
     }
   } catch (err) {
-    Logger.log("LINE Push error: " + err.toString());
-    writeDebugLog_(submitId, "LINE push: " + err.toString());
+    const errText = err.toString();
+    Logger.log("LINE Push error: " + errText);
+    if (errText.indexOf("UrlFetchApp") >= 0 || errText.indexOf("external_request") >= 0) {
+      writeDebugLog_(submitId, "LINE push: ยังไม่ได้ขอสิทธิ์ — รัน setupPermissions ใน Editor แล้ว Deploy New version");
+    } else {
+      writeDebugLog_(submitId, "LINE push: " + errText);
+    }
   }
 }
 
 /** รันครั้งเดียวจาก Apps Script Editor เพื่อขอสิทธิ์ UrlFetchApp แล้ว Deploy New version */
-function authorizeLinePush_() {
+function authorizeLinePush() {
+  Logger.log("กำลังเรียก LINE API เพื่อขอสิทธิ์ UrlFetchApp...");
   const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/info", {
     method: "get",
     headers: { Authorization: "Bearer " + LINE_ACCESS_TOKEN },
     muteHttpExceptions: true
   });
-  return "LINE auth OK (HTTP " + response.getResponseCode() + "). Deploy New version แล้วลองส่งฟอร์มอีกครั้ง";
+  const code = response.getResponseCode();
+  const body = response.getContentText();
+  Logger.log("HTTP " + code + " | " + body.substring(0, 200));
+
+  if (code === 401) {
+    throw new Error("LINE token ไม่ถูกต้อง (HTTP 401) — ตรวจ LINE_ACCESS_TOKEN ใน Code.gs");
+  }
+  if (code !== 200) {
+    throw new Error("LINE API ตอบ HTTP " + code);
+  }
+  return "LINE auth OK (HTTP " + code + ")";
+}
+
+/** รันจาก Editor ครั้งเดียวหลัง deploy — ขอสิทธิ์ UrlFetch + ตรวจ scope (เลือกจาก dropdown ได้) */
+function setupPermissions() {
+  Logger.log("=== setupPermissions เริ่ม ===");
+  const steps = [];
+  try {
+    const authResult = authorizeLinePush();
+    steps.push("1. " + authResult);
+    Logger.log("1. " + authResult);
+  } catch (err) {
+    const msg = "ขอสิทธิ์ UrlFetch ไม่สำเร็จ: " + err.toString();
+    steps.push("1. " + msg);
+    Logger.log("1. " + msg);
+    Logger.log("→ Project Settings → OAuth scopes ต้องมี script.external_request");
+    Logger.log("→ ตรวจ appsscript.json แล้ว Save");
+    throw err;
+  }
+  steps.push("2. Deploy → Manage deployments → Edit → Version: New version → Deploy");
+  steps.push("3. รัน testLinePush เพื่อทดสอบส่งข้อความจริง");
+  Logger.log("2. Deploy → Manage deployments → New version → Deploy (สำคัญมาก!)");
+  Logger.log("3. รัน testLinePush เพื่อทดสอบ");
+  Logger.log("=== setupPermissions เสร็จ ===");
+  return steps.join("\n");
+}
+
+/**
+ * ทดสอบส่ง LINE push จริง — ดูผลที่ Execution log
+ * แก้ lineUserId เป็น LINE User ID ของคุณ (คอลัมน์ C ใน Sheet)
+ */
+function testLinePush() {
+  const lineUserId = "U5e2c33d3f48be8b6aaa6f869c7f83855";
+  Logger.log("ทดสอบส่ง LINE ไปที่: " + lineUserId);
+
+  const payload = {
+    to: lineUserId,
+    messages: [{ type: "text", text: "✅ UDFondue testLinePush สำเร็จ (" + API_VERSION + ")" }]
+  };
+
+  const response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + LINE_ACCESS_TOKEN },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const code = response.getResponseCode();
+  const body = response.getContentText();
+  Logger.log("Push HTTP " + code);
+  Logger.log(body);
+
+  if (code === 200) {
+    Logger.log("สำเร็จ! ตรวจข้อความใน LINE แล้วไป Deploy New version ถ้ายังส่งฟอร์มไม่ได้");
+    return "OK: ส่ง LINE สำเร็จ";
+  }
+  throw new Error("ส่ง LINE ไม่สำเร็จ HTTP " + code + ": " + body);
 }
 
 // ---------- Diagnostics (Run จาก editor) ----------
+
+/** รันครั้งเดียวจาก Apps Script Editor เพื่อย้ายแถวที่คอลัมน์เลื่อนกลับตำแหน่งที่ถูก */
+function repairSheetColumns() {
+  CacheService.getScriptCache().remove(SHEET_REPAIR_CACHE_KEY);
+  return repairShiftedSheetRows_();
+}
 
 function testWriteSheet() {
   const timestamp = new Date();
@@ -547,7 +628,7 @@ function testWriteSheet() {
   try {
     const sheet = getSheet_();
     ensureSheetHeaders_(sheet, true);
-    sheet.appendRow(buildReportRow_({
+    appendReportRow_(sheet, {
       timestamp: timestamp,
       lineId: "TEST-LINE-ID",
       name: "ทดสอบจาก Editor",
@@ -562,7 +643,7 @@ function testWriteSheet() {
       status: DEFAULT_STATUS,
       adminNote: "",
       statusUpdated: formatDateTimeTh_(timestamp)
-    }));
+    });
     writeLog_(timestamp, 0, "test", 0, 0, 0, "", "success", submitId);
     return "OK: เขียน Sheet (" + SHEET_NAME + ") + Log สำเร็จ (API " + API_VERSION + ")";
   } catch (err) {
@@ -734,7 +815,7 @@ function ensureSheetHeaders_(sheet, forWrite) {
   }
 
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(SHEET_HEADERS);
+    sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
     sheet.setFrozenRows(1);
     cache.put(SHEET_HEADERS_CACHE_KEY, "1", 21600);
     return;
@@ -750,10 +831,14 @@ function ensureSheetHeaders_(sheet, forWrite) {
   if (!cached) {
     sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setValues([SHEET_HEADERS]);
     sheet.setFrozenRows(1);
-    if (forWrite) {
+    cache.put(SHEET_HEADERS_CACHE_KEY, "1", 21600);
+  }
+
+  if (forWrite) {
+    if (!cached) {
       backfillEmptyStatus_(sheet);
     }
-    cache.put(SHEET_HEADERS_CACHE_KEY, "1", 21600);
+    maybeRepairSheetOnce_();
   }
 }
 
@@ -798,6 +883,173 @@ function buildReportRow_(data) {
   ];
 }
 
+function appendReportRow_(sheet, data) {
+  const rowValues = buildReportRow_(data);
+  const nextRow = Math.max(sheet.getLastRow(), 1) + 1;
+  sheet.getRange(nextRow, 1, 1, SHEET_HEADERS.length).setValues([rowValues]);
+  return nextRow;
+}
+
+function appendLogRow_(sheet, rowValues) {
+  const values = rowValues.slice(0, LOG_COLUMNS);
+  while (values.length < LOG_COLUMNS) {
+    values.push("");
+  }
+  const nextRow = Math.max(sheet.getLastRow(), 1) + 1;
+  sheet.getRange(nextRow, 1, 1, LOG_COLUMNS).setValues([values]);
+  return nextRow;
+}
+
+function isSubmitIdValue_(val) {
+  const s = String(val || "").trim();
+  if (!s) return false;
+  return /^UDF-[A-Z0-9]+$/i.test(s) ||
+    /^\d{10,}-U[a-f0-9]+$/i.test(s) ||
+    /^TEST-\d+$/.test(s);
+}
+
+function isDriveUrl_(val) {
+  const s = String(val || "");
+  return s.indexOf("drive.google.com") >= 0 || s.indexOf("docs.google.com") >= 0;
+}
+
+function isStatusValue_(val) {
+  const s = String(val || "").trim();
+  return STATUS_OPTIONS.indexOf(s) >= 0 || s === "ปิดเรื่อง";
+}
+
+function isDebugLikeValue_(val) {
+  const s = String(val || "").trim();
+  if (!s) return false;
+  return s.indexOf("LINE push") >= 0 ||
+    s.indexOf("uploadImage") >= 0 ||
+    s.indexOf("testWriteSheet") >= 0 ||
+    s.indexOf("log:") >= 0;
+}
+
+function isDateTimeValue_(val) {
+  if (val instanceof Date) return true;
+  const s = String(val || "").trim();
+  return /^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}$/.test(s);
+}
+
+function formatDateTimeFromCell_(val) {
+  if (val instanceof Date) {
+    return formatDateTimeTh_(val);
+  }
+  return String(val || "").trim();
+}
+
+function isShiftedReportRow_(row) {
+  const imageUrl = String(row[COL.IMAGE_URL - 1] || "").trim();
+  if (!isSubmitIdValue_(imageUrl) || isDriveUrl_(imageUrl)) {
+    return false;
+  }
+
+  const submitCol = String(row[COL.SUBMIT_ID - 1] || "").trim();
+  const statusCol = String(row[COL.STATUS - 1] || "").trim();
+  return isStatusValue_(submitCol) || isDebugLikeValue_(submitCol) || (!statusCol && isDateTimeValue_(row[COL.DEBUG - 1]));
+}
+
+function normalizeShiftedReportRow_(row) {
+  if (!isShiftedReportRow_(row)) {
+    return null;
+  }
+
+  const out = row.slice(0, SHEET_HEADERS.length);
+  while (out.length < SHEET_HEADERS.length) {
+    out.push("");
+  }
+
+  const submitId = String(row[COL.IMAGE_URL - 1] || "").trim();
+  const colK = String(row[COL.SUBMIT_ID - 1] || "").trim();
+  const colL = String(row[COL.DEBUG - 1] || "").trim();
+  const colM = String(row[COL.STATUS - 1] || "").trim();
+
+  out[COL.IMAGE_URL - 1] = "";
+  out[COL.SUBMIT_ID - 1] = submitId;
+
+  if (isStatusValue_(colK)) {
+    out[COL.DEBUG - 1] = isDebugLikeValue_(colL) ? colL : "";
+    out[COL.STATUS - 1] = colK;
+    out[COL.ADMIN_NOTE - 1] = isDateTimeValue_(row[COL.ADMIN_NOTE - 1]) ? "" : (row[COL.ADMIN_NOTE - 1] || "");
+    if (isDateTimeValue_(colL)) {
+      out[COL.STATUS_UPDATED - 1] = formatDateTimeFromCell_(colL);
+    } else if (isDateTimeValue_(colM)) {
+      out[COL.STATUS_UPDATED - 1] = formatDateTimeFromCell_(colM);
+    }
+  } else if (isDebugLikeValue_(colK)) {
+    out[COL.DEBUG - 1] = colK;
+    out[COL.STATUS - 1] = isStatusValue_(colL) ? colL : DEFAULT_STATUS;
+    out[COL.ADMIN_NOTE - 1] = "";
+    out[COL.STATUS_UPDATED - 1] = isDateTimeValue_(colM) ?
+      formatDateTimeFromCell_(colM) :
+      formatDateTimeFromCell_(colL);
+  }
+
+  return out;
+}
+
+function fixMisplacedStatusUpdated_(row) {
+  const out = row.slice(0, SHEET_HEADERS.length);
+  while (out.length < SHEET_HEADERS.length) {
+    out.push("");
+  }
+
+  const statusUpdated = out[COL.STATUS_UPDATED - 1];
+  const adminNote = out[COL.ADMIN_NOTE - 1];
+  if (!statusUpdated && isDateTimeValue_(adminNote) && isSubmitIdValue_(out[COL.SUBMIT_ID - 1])) {
+    out[COL.STATUS_UPDATED - 1] = formatDateTimeFromCell_(adminNote);
+    out[COL.ADMIN_NOTE - 1] = "";
+    return out;
+  }
+  return null;
+}
+
+function repairShiftedSheetRows_() {
+  const sheet = getSheet_();
+  ensureSheetHeaders_(sheet, false);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return "ไม่มีแถวข้อมูลที่ต้องแก้";
+  }
+
+  const rows = getRectRange_(sheet, 2, 1, lastRow, SHEET_HEADERS.length).getValues();
+  let fixed = 0;
+  const updates = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    let row = rows[i];
+    const normalized = normalizeShiftedReportRow_(row);
+    if (normalized) {
+      row = normalized;
+      fixed++;
+    } else {
+      const repaired = fixMisplacedStatusUpdated_(row);
+      if (repaired) {
+        row = repaired;
+        fixed++;
+      }
+    }
+    updates.push(row);
+  }
+
+  if (fixed > 0) {
+    getRectRange_(sheet, 2, 1, lastRow, SHEET_HEADERS.length).setValues(updates);
+  }
+
+  return "แก้ไขคอลัมน์เลื่อน " + fixed + " แถว (API " + API_VERSION + ")";
+}
+
+function maybeRepairSheetOnce_() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get(SHEET_REPAIR_CACHE_KEY) === "1") {
+    return;
+  }
+  repairShiftedSheetRows_();
+  cache.put(SHEET_REPAIR_CACHE_KEY, "1", 2592000);
+}
+
 function getAllReportRows_(sheet) {
   ensureSheetHeaders_(sheet, false);
   const lastRow = sheet.getLastRow();
@@ -835,10 +1087,16 @@ function findRowBySubmitId_(sheet, submitId) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
 
-  const ids = getRectRange_(sheet, 2, COL.SUBMIT_ID, lastRow, COL.SUBMIT_ID).getValues();
-  for (let i = ids.length - 1; i >= 0; i--) {
-    if (String(ids[i][0]) === String(submitId)) {
-      return i + 2;
+  const target = String(submitId);
+  const searchCols = [COL.SUBMIT_ID, COL.IMAGE_URL];
+
+  for (let c = 0; c < searchCols.length; c++) {
+    const col = searchCols[c];
+    const ids = getRectRange_(sheet, 2, col, lastRow, col).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0]) === target) {
+        return i + 2;
+      }
     }
   }
   return -1;
@@ -874,7 +1132,10 @@ function ensureLogSheet_() {
   let sheet = ss.getSheetByName(LOG_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(LOG_SHEET_NAME);
-    sheet.appendRow(["วันที่/เวลา", "ขนาด Payload", "Action", "จำนวนรูปที่ได้รับ", "จำนวนรูปที่อัปสำเร็จ", "Upload OK", "ข้อผิดพลาด", "สถานะ", "Submit ID"]);
+    sheet.getRange(1, 1, 1, LOG_COLUMNS).setValues([[
+      "วันที่/เวลา", "ขนาด Payload", "Action", "จำนวนรูปที่ได้รับ",
+      "จำนวนรูปที่อัปสำเร็จ", "Upload OK", "ข้อผิดพลาด", "สถานะ", "Submit ID"
+    ]]);
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -891,7 +1152,10 @@ function setupLogSheet() {
 
 function writeLog_(timestamp, payloadSize, action, imageCount, uploadedCount, uploadOk, errors, status, submitId) {
   try {
-    getLogSheet_().appendRow([timestamp, payloadSize, action, imageCount, uploadedCount, uploadOk, errors || "", status, submitId || ""]);
+    appendLogRow_(getLogSheet_(), [
+      timestamp, payloadSize, action, imageCount, uploadedCount,
+      uploadOk, errors || "", status, submitId || ""
+    ]);
   } catch (logErr) {
     Logger.log("writeLog_ error: " + logErr.toString());
     writeDebugLog_(submitId, "log: " + logErr.toString());
