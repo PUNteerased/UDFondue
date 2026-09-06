@@ -313,9 +313,7 @@ function handleTrackList_(data) {
     }
   }
 
-  reports.sort(function (a, b) {
-    return String(b.submitId).localeCompare(String(a.submitId));
-  });
+  reports.sort(compareReportsNewestFirst_);
 
   return jsonResponse_({ status: "success", reports: reports });
 }
@@ -421,9 +419,7 @@ function getAdminReports_(filterStatus, search) {
     reports.push(report);
   }
 
-  reports.sort(function (a, b) {
-    return String(b.submitId).localeCompare(String(a.submitId));
-  });
+  reports.sort(compareReportsNewestFirst_);
 
   return reports;
 }
@@ -1079,6 +1075,44 @@ function rowToReportObject_(row) {
     adminNote: formatSheetCell_(get(COL.ADMIN_NOTE), "text"),
     statusUpdated: formatSheetCell_(get(COL.STATUS_UPDATED), "datetime")
   };
+}
+
+function parseThaiDateTimeParts_(dateStr, timeStr) {
+  const d = String(dateStr || "").trim();
+  const t = String(timeStr || "00:00:00").trim();
+  const dm = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const tm = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!dm) return null;
+  return new Date(
+    parseInt(dm[3], 10),
+    parseInt(dm[2], 10) - 1,
+    parseInt(dm[1], 10),
+    tm ? parseInt(tm[1], 10) : 0,
+    tm ? parseInt(tm[2], 10) : 0,
+    tm && tm[3] ? parseInt(tm[3], 10) : 0
+  ).getTime();
+}
+
+function getReportSortTime_(report) {
+  const fromDateTime = parseThaiDateTimeParts_(report.date, report.time);
+  if (fromDateTime) return fromDateTime;
+
+  const su = String(report.statusUpdated || "").trim();
+  const suParts = su.match(/^(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)$/);
+  if (suParts) {
+    const parsed = parseThaiDateTimeParts_(suParts[1], suParts[2]);
+    if (parsed) return parsed;
+  }
+
+  const sid = String(report.submitId || "");
+  const tsMatch = sid.match(/^(\d{10,13})(?:-|$)/);
+  if (tsMatch) return parseInt(tsMatch[1], 10);
+
+  return 0;
+}
+
+function compareReportsNewestFirst_(a, b) {
+  return getReportSortTime_(b) - getReportSortTime_(a);
 }
 
 function findRowBySubmitId_(sheet, submitId) {
