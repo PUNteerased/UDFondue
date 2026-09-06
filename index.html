@@ -378,6 +378,15 @@
             renderPreviews();
         }
 
+        function generateSubmitId() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let code = "";
+            for (let i = 0; i < 8; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return "UDF-" + code;
+        }
+
         async function postToGas(payload) {
             const response = await fetch(GAS_WEB_APP_URL, {
                 method: "POST",
@@ -550,7 +559,7 @@
             submitBtn.disabled = true;
 
             const lineUserId = document.getElementById("lineUserId").value;
-            const submitId = "UDF-" + Date.now().toString().slice(-7);
+            const submitId = generateSubmitId();
 
             try {
                 setLoadingMessage("กำลังบันทึกข้อมูล...", "กรุณาอย่าปิดหน้านี้");

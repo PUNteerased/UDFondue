@@ -6,14 +6,15 @@
  * การ Save อย่างเดียวไม่ทำให้ Web App URL ใช้โค้ดใหม่
  */
 
-const API_VERSION = "v6-perf";
+const API_VERSION = "v7-submit-notify";
 const SHEET_HEADERS_CACHE_KEY = "sheet_headers_v6";
 const SPREADSHEET_ID = "19pIiTGsPMHbyTxULJDtiPbavmkCS07FBH2E5iHcd1KE";
 const SHEET_NAME = "UDFondue_Database";
 const LOG_SHEET_NAME = "UDFondue_Log";
 const FOLDER_ID = "1zP6mUhrI7q-Qf-bgA5c4HJwIYU6LnpyJ";
 const LINE_ACCESS_TOKEN = "1zQJQDz1un38gxqKc4Y91joSXB6oItmlQY9yG8EduB65R73XcMkHDkJ5pwBEkykFwWWgaRn4nv2sZer6yQglHR6UuJ/LE7Mqe1LsvhmUfKK/ABHu50jIpz6t8FxDuXcwNUo9q+RmWoXoqKUB9yZSIgdB04t89/1O/w1cDnyilFU=";
-const LINE_THANK_YOU_MESSAGE = "ปัญหาของคุณได้รับรู้แล้วแต่ไม่รับเรื่อง\nทางเราจะประสานอินให้นะครับ";
+const LIFF_TRACK_URL = "https://liff.line.me/2010319415-VtukiTkR";
+const LIFF_REPORT_URL = "https://liff.line.me/2010319415-epnUUdNV";
 const ADMIN_PASSWORD = "UDFondue123WoWoWo";
 const ADMIN_TOKEN_TTL_SEC = 28800;
 const DEFAULT_STATUS = "รับเรื่องแล้ว";
@@ -157,7 +158,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
   writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
 
   if (imageCount === 0) {
-    sendLineThankYou_(lineId, submitId);
+    sendLineThankYou_(lineId, submitId, category);
   }
 
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
@@ -194,8 +195,9 @@ function handleUploadImage_(data, timestamp, payloadSize) {
 
       const imageCount = Number(rowData[COL.IMAGE_COUNT - 1]) || 0;
       const lineId = rowData[COL.LINE_ID - 1];
+      const category = rowData[COL.CATEGORY - 1];
       if (imageIndex >= imageCount && imageCount > 0) {
-        sendLineThankYou_(lineId, submitId);
+        sendLineThankYou_(lineId, submitId, category);
       }
     } else {
       errorMsg = "ไม่พบแถว submitId: " + submitId;
@@ -285,7 +287,7 @@ function handleLegacy_(data, timestamp, payloadSize) {
 
   writeLog_(timestamp, payloadSize, "legacy", images.length, urls.length, urls.length, uploadErrors.join(" | "), "success", "");
 
-  sendLineThankYou_(lineId, "");
+  sendLineThankYou_(lineId, "", category);
 
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
 }
@@ -460,16 +462,47 @@ function verifyAdminToken_(token) {
 
 // ---------- LINE Messaging API ----------
 
-function sendLineThankYou_(userId, submitId) {
+function buildSubmitConfirmationMessage_(submitId, category, status) {
+  const resolvedStatus = status || DEFAULT_STATUS;
+  let statusLine = resolvedStatus;
+  if (resolvedStatus === DEFAULT_STATUS) {
+    statusLine = "🟡 " + resolvedStatus + " (รอเจ้าหน้าที่ตรวจสอบ)";
+  }
+
+  return [
+    "🙏 ขอบคุณสำหรับการแจ้งเรื่องครับ/ค่ะ!",
+    "ทางเราได้รับข้อมูลของท่านเรียบร้อยแล้ว",
+    "📌 สรุปรายละเอียดการแจ้งเรื่อง",
+    "• รหัสติดตาม: " + (submitId || "—"),
+    "• หมวดหมู่: " + (category || "ไม่ได้เลือก"),
+    "• สถานะปัจจุบัน: " + statusLine,
+    "",
+    "🔍 ติดตามสถานะหรือเช็กความคืบหน้าได้ที่:",
+    "👉 " + LIFF_TRACK_URL,
+    "📝 แจ้งปัญหา / ตามหาของหายเพิ่มเติมได้ที่:",
+    "👉 " + LIFF_REPORT_URL
+  ].join("\n");
+}
+
+function sendLineThankYou_(userId, submitId, category, status) {
   if (!userId || userId === "ไม่ระบุ ID" || String(userId).indexOf("TEST") !== -1) return;
   if (!LINE_ACCESS_TOKEN || LINE_ACCESS_TOKEN === "YOUR_LINE_CHANNEL_ACCESS_TOKEN") {
     Logger.log("LINE_ACCESS_TOKEN not configured, skip push message");
     return;
   }
 
+  if (submitId) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = "line_sent_" + submitId;
+    if (cache.get(cacheKey) === "1") return;
+    cache.put(cacheKey, "1", 60);
+  }
+
+  const messageText = buildSubmitConfirmationMessage_(submitId, category, status);
+
   const payload = {
     to: userId,
-    messages: [{ type: "text", text: LINE_THANK_YOU_MESSAGE }]
+    messages: [{ type: "text", text: messageText }]
   };
 
   const options = {
