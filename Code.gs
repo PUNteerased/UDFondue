@@ -183,6 +183,10 @@ function handleUploadImage_(data, timestamp, payloadSize) {
     errorMsg = err.toString();
   }
 
+  let lineId = "";
+  let category = "";
+  let imageCount = 0;
+
   if (url) {
     const sheet = getSheet_();
     const row = findRowBySubmitId_(sheet, submitId);
@@ -195,14 +199,12 @@ function handleUploadImage_(data, timestamp, payloadSize) {
       }
       sheet.getRange(row, COL.IMAGE_URL).setValue(newVal);
 
-      const imageCount = Number(rowData[COL.IMAGE_COUNT - 1]) || 0;
-      const lineId = rowData[COL.LINE_ID - 1];
-      const category = rowData[COL.CATEGORY - 1];
-      if (imageIndex >= imageCount && imageCount > 0) {
-        sendLineThankYou_(lineId, submitId, category);
-      }
+      imageCount = Number(rowData[COL.IMAGE_COUNT - 1]) || 0;
+      lineId = rowData[COL.LINE_ID - 1];
+      category = rowData[COL.CATEGORY - 1];
     } else {
       errorMsg = "ไม่พบแถว submitId: " + submitId;
+      url = "";
     }
   }
 
@@ -210,6 +212,14 @@ function handleUploadImage_(data, timestamp, payloadSize) {
 
   if (errorMsg) {
     writeDebugLog_(submitId, "uploadImage: " + errorMsg);
+  }
+
+  if (url && imageIndex >= imageCount && imageCount > 0) {
+    try {
+      sendLineThankYou_(lineId, submitId, category);
+    } catch (lineErr) {
+      Logger.log("LINE after upload: " + lineErr.toString());
+    }
   }
 
   return jsonResponse_({
@@ -834,7 +844,6 @@ function ensureSheetHeaders_(sheet, forWrite) {
     if (!cached) {
       backfillEmptyStatus_(sheet);
     }
-    maybeRepairSheetOnce_();
   }
 }
 
