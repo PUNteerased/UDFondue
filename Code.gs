@@ -6,7 +6,7 @@
  * การ Save อย่างเดียวไม่ทำให้ Web App URL ใช้โค้ดใหม่
  */
 
-const API_VERSION = "v8-sheet-columns";
+const API_VERSION = "v9-fast-submit";
 const SHEET_HEADERS_CACHE_KEY = "sheet_headers_v8";
 const SHEET_REPAIR_CACHE_KEY = "sheet_repair_v8";
 const LOG_COLUMNS = 9;
@@ -80,6 +80,9 @@ function doPost(e) {
     if (action === "uploadImage") {
       return handleUploadImage_(data, timestamp, payloadSize);
     }
+    if (action === "notifySubmit") {
+      return handleNotifySubmit_(data);
+    }
     if (action === "trackList") {
       return handleTrackList_(data);
     }
@@ -138,7 +141,7 @@ function handleSubmit_(data, timestamp, payloadSize) {
   const imageUrl = imageCount > 0 ? "กำลังอัปโหลด..." : "";
 
   const sheet = getSheet_();
-  ensureSheetHeaders_(sheet, true);
+  ensureSheetHeaders_(sheet, false);
   const newRow = appendReportRow_(sheet, {
     timestamp: timestamp,
     lineId: lineId,
@@ -157,13 +160,35 @@ function handleSubmit_(data, timestamp, payloadSize) {
   });
   fixTextColumnsAfterAppend_(sheet, newRow, room, studentNo);
 
-  writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
-
-  if (imageCount === 0) {
-    sendLineThankYou_(lineId, submitId, category);
+  try {
+    writeLog_(timestamp, payloadSize, "submit", imageCount, 0, 0, "", "success", submitId);
+  } catch (logErr) {
+    Logger.log("writeLog submit: " + logErr.toString());
   }
 
   return jsonResponse_({ status: "success", message: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+}
+
+function handleNotifySubmit_(data) {
+  const submitId = data.submitId || "";
+  const lineId = data.lineId || "";
+  if (!submitId || !lineId) {
+    return jsonResponse_({ status: "error", message: "ข้อมูลไม่ครบ" });
+  }
+
+  const sheet = getSheet_();
+  const row = findRowBySubmitId_(sheet, submitId);
+  if (row < 0) {
+    return jsonResponse_({ status: "error", message: "ไม่พบเลขที่แจ้ง" });
+  }
+
+  const report = rowToReportObject_(getSingleRowRange_(sheet, row, 1, SHEET_HEADERS.length).getValues()[0], row);
+  if (String(report.lineId) !== String(lineId)) {
+    return jsonResponse_({ status: "error", message: "ไม่มีสิทธิ์" });
+  }
+
+  sendLineThankYou_(lineId, submitId, report.category, report.status);
+  return jsonResponse_({ status: "success", message: "ส่งการแจ้งเตือน LINE แล้ว" });
 }
 
 function handleUploadImage_(data, timestamp, payloadSize) {
@@ -183,10 +208,6 @@ function handleUploadImage_(data, timestamp, payloadSize) {
     errorMsg = err.toString();
   }
 
-  let lineId = "";
-  let category = "";
-  let imageCount = 0;
-
   if (url) {
     const sheet = getSheet_();
     const row = findRowBySubmitId_(sheet, submitId);
@@ -198,10 +219,6 @@ function handleUploadImage_(data, timestamp, payloadSize) {
         newVal = current + "\n" + url;
       }
       sheet.getRange(row, COL.IMAGE_URL).setValue(newVal);
-
-      imageCount = Number(rowData[COL.IMAGE_COUNT - 1]) || 0;
-      lineId = rowData[COL.LINE_ID - 1];
-      category = rowData[COL.CATEGORY - 1];
     } else {
       errorMsg = "ไม่พบแถว submitId: " + submitId;
       url = "";
@@ -212,14 +229,6 @@ function handleUploadImage_(data, timestamp, payloadSize) {
 
   if (errorMsg) {
     writeDebugLog_(submitId, "uploadImage: " + errorMsg);
-  }
-
-  if (url && imageIndex >= imageCount && imageCount > 0) {
-    try {
-      sendLineThankYou_(lineId, submitId, category);
-    } catch (lineErr) {
-      Logger.log("LINE after upload: " + lineErr.toString());
-    }
   }
 
   return jsonResponse_({

@@ -362,7 +362,7 @@
                 throw new Error("เซิร์ฟเวอร์ไม่ตอบกลับ (อาจใช้เวลานานเกินไป)");
             }
             if (trimmed.charAt(0) === "<") {
-                throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (timeout หรือรูปใหญ่เกินไป)");
+                throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง — ลองใหม่อีกครั้ง");
             }
             try {
                 return JSON.parse(trimmed);
@@ -590,7 +590,7 @@
                     otherCategory: otherCategoryValue,
                     detail: document.getElementById("issueDetail").value,
                     imageCount: base64Images.length
-                }, { timeoutMs: 60000 });
+                }, { timeoutMs: 45000 });
 
                 const uploadWarnings = [];
                 for (let i = 0; i < base64Images.length; i++) {
@@ -609,6 +609,13 @@
                         uploadWarnings.push("รูป " + (i + 1) + ": " + (uploadResult.message || "อัปโหลดไม่สำเร็จ"));
                     }
                 }
+
+                setLoadingMessage("กำลังส่งการแจ้งเตือน...", "เกือบเสร็จแล้ว");
+                await postToGas({
+                    action: "notifySubmit",
+                    submitId: submitId,
+                    lineId: lineUserId
+                }, { timeoutMs: 45000, softFail: true });
 
                 showSuccess(submitId, uploadWarnings);
 
